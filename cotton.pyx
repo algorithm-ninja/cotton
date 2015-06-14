@@ -14,7 +14,7 @@ from libc.stdio cimport printf
 from libc.errno cimport errno
 from libc.string cimport strerror, strdup
 from libc.signal cimport SIGCHLD
-from posix.unistd cimport geteuid, getuid, getpid, getgid, read, write, execve, fork, usleep, chdir
+from posix.unistd cimport geteuid, getuid, getpid, getgid, read, write, execve, fork, usleep, chdir, dup2
 from posix.wait cimport waitpid, WNOHANG, WIFSIGNALED, WTERMSIG, WIFEXITED, WEXITSTATUS
 
 cdef extern from "sched.h":
@@ -118,6 +118,9 @@ cdef class Cotton:
     cdef object td
     cdef object env
     cdef object res_limits
+    cdef object stdin_file
+    cdef object stdout_file
+    cdef object stderr_file
 
     cdef is_child(self):
         return getpid() == 1
@@ -147,6 +150,8 @@ cdef class Cotton:
         return self.list_to_strings(["=".join(i) for i in self.env.iteritems()])
 
     cdef run_handler(self, data):
+        get_stdout = data["get_stdout"]
+        get_stderr = data["get_stderr"]
         cdef int command_pid
         cdef int return_code
         command_pid = fork()
@@ -155,6 +160,15 @@ cdef class Cotton:
                 resource.setrlimit(res, limit)
             chdir(self.td.encode())
             chroot(self.td.encode())
+            newin = os.open(self.stdin_file, os.O_RDONLY | os.O_CREAT)
+            dup2(newin, 0)
+            os.close(newin)
+            newout = os.open(self.stdout_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
+            dup2(newout, 1)
+            os.close(newout)
+            newerr = os.open(self.stderr_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
+            dup2(newin, 2)
+            os.close(newerr)
             execve(
                 data["command"][0].encode(),
                 self.list_to_strings(data["command"]),
@@ -182,6 +196,18 @@ cdef class Cotton:
             res = resource.getrusage(resource.RUSAGE_CHILDREN)
             data["mem"] = res.ru_maxrss
             data["time"] = res.ru_utime
+            if get_stdout:
+                try:
+                    with open(os.path.join(self.td, self.stdout_file), "rb") as out:
+                        data["stdout"] = out.read()
+                except:
+                    data["stdout"] = ""
+            if get_stderr:
+                try:
+                    with open(os.path.join(self.td, self.stderr_file), "rb") as err:
+                        data["stderr"] = err.read()
+                except:
+                    data["stderr"] = ""
             return data
 
 
@@ -206,6 +232,12 @@ cdef class Cotton:
                 self.res_limits[data["res"]] = data["limit"]
             elif data["action"] == "set_env":
                 self.env[data["var"]] = data["val"]
+            elif data["action"] == "set_stdin_file":
+                self.stdin_file = data["file"]
+            elif data["action"] == "set_stdout_file":
+                self.stdout_file = data["file"]
+            elif data["action"] == "set_stderr_file":
+                self.stderr_file = data["file"]
             elif data["action"] == "cleanup":
                 ret = self.cleanup_handler(data)
             elif data["action"] == "delete_file":
@@ -251,6 +283,9 @@ cdef class Cotton:
             resource.RLIMIT_MEMLOCK: (0, 0)
         }
         self._wall_limit = 0
+        self.stdin_file = "stdin"
+        self.stdout_file = "stdout"
+        self.stderr_file = "stderr"
 #        print(self.recv(10))
         self.td = tempfile.mkdtemp()
         mnt_opt = ("size=%sK" % self.size).encode()
@@ -304,6 +339,24 @@ cdef class Cotton:
             "action": "set_env",
             "var": var,
             "val": val
+        })
+
+    def set_stdin_file(self, file):
+        self.send({
+            "action": "set_stdin_file",
+            "file": file
+        })
+
+    def set_stdout_file(self, file):
+        self.send({
+            "action": "set_stdout_file",
+            "file": file
+        })
+
+    def set_stderr_file(self, file):
+        self.send({
+            "action": "set_stderr_file",
+            "file": file
         })
 
     def delete_file(self, path):
@@ -361,12 +414,14 @@ cdef class Cotton:
     def process_limit(self, limit):
         self.rlimit(resource.RLIMIT_NPROC, (limit+1, limit+1))
 
-    def run(self, command):
+    def run(self, command, get_stdout=True, get_stderr=True):
         if isinstance(command, basestring) or (not all(isinstance(itm, basestring) for itm in command)):
             raise ValueError("command must be a list of strings!")
         return self.send({
             "action": "run",
-            "command": command
+            "command": command,
+            "get_stdout": get_stdout,
+            "get_stderr": get_stderr
         })
 
     def cleanup(self, get_files=False):
