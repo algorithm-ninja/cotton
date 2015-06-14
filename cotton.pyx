@@ -1,6 +1,7 @@
 import errno as pyerrno
 import os
 import signal
+import shutil
 import stat
 import pickle
 import resource
@@ -149,6 +150,12 @@ cdef class Cotton:
     cdef char** env_to_strings(self):
         return self.list_to_strings(["=".join(i) for i in self.env.iteritems()])
 
+    cdef makedirs(self, path):
+        try:
+            os.makedirs(path)
+        except FileExistsError:
+            pass
+
     cdef run_handler(self, data):
         get_stdout = data["get_stdout"]
         get_stderr = data["get_stderr"]
@@ -210,10 +217,17 @@ cdef class Cotton:
                     data["stderr"] = ""
             return data
 
-
     cdef cleanup_handler(self, data):
         for m in self.mounts[::-1]:
             umount(m.encode())
+        if data["get_files"]:
+            path = os.path.realpath(data["archive_location"])
+            self.makedirs(path)
+            oldwd = os.getcwd()
+            os.chdir(self.td)
+            archive_name = os.path.join(path, "cotton_%s" % os.path.basename(self.td)[3:])
+            shutil.make_archive(archive_name, "gztar")
+            os.chdir(oldwd)
         umount(self.td.encode())
         os.rmdir(self.td)
         self.go_on = 0
@@ -247,10 +261,7 @@ cdef class Cotton:
                     pass
             elif data["action"] == "create_file":
                 path = os.path.join(self.td, data["path"])
-                try:
-                    os.makedirs(os.path.dirname(path))
-                except FileExistsError:
-                    pass
+                self.makedirs(os.path.dirname(path))
                 with open(path, "w"):
                     pass
                 os.chmod(path, data["mode"])
@@ -262,10 +273,7 @@ cdef class Cotton:
                 while data["path"].startswith(os.sep):
                     data["path"] = data["path"][1:]
                 dst = os.path.join(self.td, data["path"])
-                try:
-                    os.makedirs(dst)
-                except FileExistsError:
-                    pass
+                self.makedirs(dst)
                 mount(orig.encode(), dst.encode(), b"", MS_BIND | MS_RDONLY, b"")
                 self.mounts.append(dst)
             else:
@@ -424,8 +432,9 @@ cdef class Cotton:
             "get_stderr": get_stderr
         })
 
-    def cleanup(self, get_files=False):
+    def cleanup(self, get_files=False, archive_location="."):
         self.send({
             "action": "cleanup",
-            "get_files": get_files
+            "get_files": get_files,
+            "archive_location": archive_location
         })
