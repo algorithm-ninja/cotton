@@ -1,8 +1,10 @@
 import errno as pyerrno
 import os
-import json
 import signal
+import stat
+import pickle
 import resource
+import tempfile
 import traceback
 from timeit import default_timer as timer
 
@@ -12,7 +14,7 @@ from libc.stdio cimport printf
 from libc.errno cimport errno
 from libc.string cimport strerror, strdup
 from libc.signal cimport SIGCHLD
-from posix.unistd cimport geteuid, getuid, getpid, getgid, read, write, execve, fork, usleep
+from posix.unistd cimport geteuid, getuid, getpid, getgid, read, write, execve, fork, usleep, chdir
 from posix.wait cimport waitpid, WNOHANG, WIFSIGNALED, WTERMSIG, WIFEXITED, WEXITSTATUS
 
 cdef extern from "sched.h":
@@ -25,8 +27,18 @@ cdef extern from "sched.h":
     enum: CLONE_NEWPID
     enum: CLONE_NEWNET
 
+cdef extern from "sys/mount.h":
+    int mount(const char *source, const char *target, const char *filesystemtype, unsigned long mountflags, const void *data)
+    int umount(const char *target)
+    enum: MS_BIND
+    enum: MS_RDONLY
+
+cdef extern from "unistd.h":
+    int chroot(const char *path)
+
 # Constants
 cdef enum: STACK_SIZE = 1<<20
+cdef enum: CHUNK_SIZE = 1<<13
 cdef enum: BUF_SIZE = 1<<13
 cdef enum: H_SIZE = sizeof(int)
 
@@ -75,10 +87,10 @@ cdef read_from_fd(int fd, int timeout = 0):
     for i in xrange(H_SIZE):
         c[i] = data[i]
     data = read_exactly(fd, sz, timeout)
-    return json.loads(data.decode())
+    return pickle.loads(data)
 
-cdef write_to_fd(int fd, obj, int timeout = 0):
-    data = json.dumps(obj).encode()
+cdef write_to_fd(int fd, object obj, int timeout = 0):
+    data = pickle.dumps(obj)
     cdef int sz = len(data)
     cdef unsigned char* c = <unsigned char*> &sz
     write_all(fd, H_SIZE, c, timeout)
@@ -99,6 +111,13 @@ cdef class Cotton:
     cdef int parent_child_pipe[2]
     cdef int child_parent_pipe[2]
     cdef int pid
+    cdef int size
+    cdef int go_on
+    cdef int _wall_limit
+    cdef object mounts
+    cdef object td
+    cdef object env
+    cdef object res_limits
 
     cdef is_child(self):
         return getpid() == 1
@@ -107,7 +126,14 @@ cdef class Cotton:
         return read_from_fd(self.parent_child_pipe[0] if self.is_child() else self.child_parent_pipe[0], timeout)
 
     cdef send(self, obj, timeout=0):
-        write_to_fd(self.child_parent_pipe[1] if self.is_child() else self.parent_child_pipe[1], obj, timeout)
+        if self.is_child():
+            write_to_fd(self.child_parent_pipe[1], obj, timeout)
+        else:
+            write_to_fd(self.parent_child_pipe[1], obj, timeout)
+            data = self.recv(timeout)
+            if isinstance(data, Exception):
+                raise data
+            return data
 
     cdef char** list_to_strings(self, lst):
         lst = list(map(lambda x: x.encode(), lst))
@@ -117,70 +143,130 @@ cdef class Cotton:
             ret[i] = strdup(lst[i])
         return ret
 
-    cdef char** env_to_strings(self, dct):
-        return self.list_to_strings(["=".join(i) for i in dct.iteritems()])
+    cdef char** env_to_strings(self):
+        return self.list_to_strings(["=".join(i) for i in self.env.iteritems()])
 
-    cdef child_proc(self):
-#        print(self.recv(10))
+    cdef run_handler(self, data):
         cdef int command_pid
         cdef int return_code
-        env = dict()
-        res_limits = {
+        command_pid = fork()
+        if not command_pid:
+            for (res, limit) in self.res_limits.iteritems():
+                resource.setrlimit(res, limit)
+            chdir(self.td.encode())
+            chroot(self.td.encode())
+            execve(
+                data["command"][0].encode(),
+                self.list_to_strings(data["command"]),
+                self.env_to_strings()
+            )
+            print(strerror(errno))
+        else:
+            data = dict()
+            ex_start = timer()
+            if self._wall_limit > 0:
+                done = 0
+                while timer() - ex_start < self._wall_limit:
+                    done = waitpid(command_pid, &return_code, WNOHANG)
+                    usleep(100)
+                    if done:
+                        break
+                if not done:
+                    os.kill(command_pid, signal.SIGKILL)
+                    waitpid(command_pid, &return_code, 0)
+            else:
+                waitpid(command_pid, &return_code, 0)
+            data["ret"] = WEXITSTATUS(return_code) if WIFEXITED(return_code) else 0
+            data["sig"] = WTERMSIG(return_code) if WIFSIGNALED(return_code) else 0
+            data["wall_time"] = timer() - ex_start
+            res = resource.getrusage(resource.RUSAGE_CHILDREN)
+            data["mem"] = res.ru_maxrss
+            data["time"] = res.ru_utime
+            return data
+
+
+    cdef cleanup_handler(self, data):
+        for m in self.mounts[::-1]:
+            umount(m.encode())
+        umount(self.td.encode())
+        os.rmdir(self.td)
+        self.go_on = 0
+
+    cdef do_work(self):
+        try:
+            data = self.recv(10)
+            if data.get("action") is None:
+                raise ValueError("You must tell me what to do!")
+            ret = None
+            if data["action"] == "run":
+                ret = self.run_handler(data)
+            elif data["action"] == "set_wall_limit":
+                self._wall_limit = data["limit"]
+            elif data["action"] == "setrlimit":
+                self.res_limits[data["res"]] = data["limit"]
+            elif data["action"] == "set_env":
+                self.env[data["var"]] = data["val"]
+            elif data["action"] == "cleanup":
+                ret = self.cleanup_handler(data)
+            elif data["action"] == "delete_file":
+                try:
+                    os.unlink(os.path.join(self.td, data["path"]))
+                except FileNotFoundError:
+                    pass
+            elif data["action"] == "create_file":
+                path = os.path.join(self.td, data["path"])
+                try:
+                    os.makedirs(os.path.dirname(path))
+                except FileExistsError:
+                    pass
+                with open(path, "w"):
+                    pass
+                os.chmod(path, data["mode"])
+            elif data["action"] == "add_to_file":
+                with open(os.path.join(self.td, data["path"]), 'ab') as f:
+                    f.write(data["contents"])
+            elif data["action"] == "allow_path":
+                orig = data["path"]
+                while data["path"].startswith(os.sep):
+                    data["path"] = data["path"][1:]
+                dst = os.path.join(self.td, data["path"])
+                try:
+                    os.makedirs(dst)
+                except FileExistsError:
+                    pass
+                mount(orig.encode(), dst.encode(), b"", MS_BIND | MS_RDONLY, b"")
+                self.mounts.append(dst)
+            else:
+                raise ValueError("Unknown action %s!" % data['action'])
+            self.send(ret)
+        except Exception as e:
+            self.send(e)
+
+    cdef child_proc(self):
+        self.go_on = 1
+        self.mounts = []
+        self.env = dict()
+        self.res_limits = {
             resource.RLIMIT_STACK: (resource.RLIM_INFINITY, resource.RLIM_INFINITY),
             resource.RLIMIT_MEMLOCK: (0, 0)
         }
-        wall_limit = 0
-
+        self._wall_limit = 0
+#        print(self.recv(10))
+        self.td = tempfile.mkdtemp()
+        mnt_opt = ("size=%sK" % self.size).encode()
+        mount(os.path.basename(self.td).encode(), self.td.encode(), b"tmpfs", 0, <char*>mnt_opt)
         printf("UID: %d\nEUID: %d\nPID: %d\n", getuid(), geteuid(), getpid())
-        while True:
-            data = self.recv(10)
-            if data["action"] == "run":
-                command_pid = fork()
-                if not command_pid:
-                    for (res, limit) in res_limits.iteritems():
-                        resource.setrlimit(res, limit)
-                    execve(
-                        data["command"][0].encode(),
-                        self.list_to_strings(data["command"]),
-                        self.env_to_strings(env)
-                    )
-                    print(strerror(errno))
-                else:
-                    data = dict()
-                    ex_start = timer()
-                    if wall_limit > 0: 
-                        done = 0
-                        while timer() - ex_start < wall_limit:
-                            done = waitpid(command_pid, &return_code, WNOHANG)
-                            usleep(100)
-                            if done:
-                                break
-                        if not done:
-                            os.kill(command_pid, signal.SIGKILL)
-                            waitpid(command_pid, &return_code, 0)
-                    else:
-                        waitpid(command_pid, &return_code, 0)
-                    data["ret"] = WEXITSTATUS(return_code) if WIFEXITED(return_code) else 0
-                    data["sig"] = WTERMSIG(return_code) if WIFSIGNALED(return_code) else 0
-                    data["wall_time"] = timer() - ex_start
-                    res = resource.getrusage(resource.RUSAGE_CHILDREN)
-                    data["mem"] = res.ru_maxrss
-                    data["time"] = res.ru_utime
-                    self.send(data)
-            elif data["action"] == "set_wall_limit":
-                wall_limit = data["limit"]
-            elif data["action"] == "setrlimit":
-                res_limits[data["res"]] = data["limit"]
-            elif data["action"] == "set_env":
-                env[data["var"]] = data["val"]
+        while self.go_on:
+            self.do_work()
         return 0
 
-    def __init__(self):
+    def __init__(self, size=256*1024):
         cdef int original_uid = getuid()
         cdef int original_gid = getgid()
         cdef char* stack = <char*> malloc(STACK_SIZE)
         self.parent_child_pipe = os.pipe()
         self.child_parent_pipe = os.pipe()
+        self.size = size
 
         self.pid = clone(
             wrap,
@@ -220,6 +306,52 @@ cdef class Cotton:
             "val": val
         })
 
+    def delete_file(self, path):
+        self.send({
+            "action": "delete_file",
+            "path": path
+        })
+
+    def create_file(self, path, mode):
+        self.send({
+            "action": "create_file",
+            "path": path,
+            "mode": mode
+        })
+
+    def add_to_file(self, path, contents):
+        self.send({
+            "action": "add_to_file",
+            "path": path,
+            "contents": contents
+        })
+
+    def add_file(self, path, contents, mode=stat.S_IRUSR | stat.S_IWUSR):
+        self.delete_file(path)
+        self.create_file(path, mode)
+        cur = 0
+        while cur < len(contents):
+            self.add_to_file(path, contents[cur:cur+CHUNK_SIZE])
+            cur += CHUNK_SIZE
+
+    def add_file_from_path(self, path, orig_path):
+        self.delete_file(path)
+        self.create_file(path, os.stat(orig_path)[stat.ST_MODE])
+        with open(orig_path, 'rb') as f:
+            cur = 0
+            while True:
+                data = f.read(CHUNK_SIZE)
+                if len(data) == 0:
+                    break
+                self.add_to_file(path, data)
+                cur += len(data)
+
+    def allow_path(self, path):
+        self.send({
+            "action": "allow_path",
+            "path": path
+        })
+
     def memory_limit(self, limit):
         self.rlimit(resource.RLIMIT_AS, (limit, limit))
 
@@ -232,8 +364,13 @@ cdef class Cotton:
     def run(self, command):
         if isinstance(command, basestring) or (not all(isinstance(itm, basestring) for itm in command)):
             raise ValueError("command must be a list of strings!")
-        self.send({
+        return self.send({
             "action": "run",
             "command": command
         })
-        return self.recv()
+
+    def cleanup(self, get_files=False):
+        self.send({
+            "action": "cleanup",
+            "get_files": get_files
+        })
