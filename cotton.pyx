@@ -3,6 +3,7 @@ import os
 import signal
 import shutil
 import stat
+import subprocess
 import pickle
 import resource
 import tempfile
@@ -139,17 +140,6 @@ cdef class Cotton:
                 raise data
             return data
 
-    cdef char** list_to_strings(self, lst):
-        lst = list(map(lambda x: x.encode(), lst))
-        cdef char** ret = <char**> malloc(sizeof(char**) * (len(lst)+1))
-        ret[len(lst)] = NULL
-        for i in xrange(len(lst)):
-            ret[i] = strdup(lst[i])
-        return ret
-
-    cdef char** env_to_strings(self):
-        return self.list_to_strings(["=".join(i) for i in self.env.iteritems()])
-
     cdef makedirs(self, path):
         try:
             os.makedirs(path)
@@ -161,61 +151,52 @@ cdef class Cotton:
         get_stderr = data["get_stderr"]
         cdef int command_pid
         cdef int return_code
-        command_pid = fork()
-        if not command_pid:
-            for (res, limit) in self.res_limits.iteritems():
-                resource.setrlimit(res, limit)
+        def prepare():
             chdir(self.td.encode())
             chroot(self.td.encode())
-            newin = os.open(self.stdin_file, os.O_RDONLY | os.O_CREAT)
-            dup2(newin, 0)
-            os.close(newin)
-            newout = os.open(self.stdout_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
-            dup2(newout, 1)
-            os.close(newout)
-            newerr = os.open(self.stderr_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
-            dup2(newin, 2)
-            os.close(newerr)
-            execve(
-                data["command"][0].encode(),
-                self.list_to_strings(data["command"]),
-                self.env_to_strings()
-            )
-            print(strerror(errno))
-        else:
-            data = dict()
-            ex_start = timer()
-            if self._wall_limit > 0:
-                done = 0
-                while timer() - ex_start < self._wall_limit:
-                    done = waitpid(command_pid, &return_code, WNOHANG)
-                    usleep(100)
-                    if done:
-                        break
-                if not done:
-                    os.kill(command_pid, signal.SIGKILL)
-                    waitpid(command_pid, &return_code, 0)
-            else:
+            for (res, limit) in self.res_limits.iteritems():
+                resource.setrlimit(res, limit)
+        stdin = os.open(os.path.join(self.td, self.stdin_file), os.O_RDONLY | os.O_CREAT)
+        stdout = open(os.path.join(self.td, self.stdout_file), "w")
+        stderr = open(os.path.join(self.td, self.stderr_file), "w")
+        command_pid = subprocess.Popen(data["command"], stdin=stdin,
+            stdout=stdout, stderr=stderr, env=self.env, preexec_fn=prepare).pid
+        data = dict()
+        ex_start = timer()
+        if self._wall_limit > 0:
+            done = 0
+            while timer() - ex_start < self._wall_limit:
+                done = waitpid(command_pid, &return_code, WNOHANG)
+                usleep(100)
+                if done:
+                    break
+            if not done:
+                os.kill(command_pid, signal.SIGKILL)
                 waitpid(command_pid, &return_code, 0)
-            data["ret"] = WEXITSTATUS(return_code) if WIFEXITED(return_code) else 0
-            data["sig"] = WTERMSIG(return_code) if WIFSIGNALED(return_code) else 0
-            data["wall_time"] = timer() - ex_start
-            res = resource.getrusage(resource.RUSAGE_CHILDREN)
-            data["mem"] = res.ru_maxrss
-            data["time"] = res.ru_utime
-            if get_stdout:
-                try:
-                    with open(os.path.join(self.td, self.stdout_file), "rb") as out:
-                        data["stdout"] = out.read()
-                except:
-                    data["stdout"] = ""
-            if get_stderr:
-                try:
-                    with open(os.path.join(self.td, self.stderr_file), "rb") as err:
-                        data["stderr"] = err.read()
-                except:
-                    data["stderr"] = ""
-            return data
+        else:
+            waitpid(command_pid, &return_code, 0)
+        os.close(stdin)
+        stdout.close()
+        stderr.close()
+        data["ret"] = WEXITSTATUS(return_code) if WIFEXITED(return_code) else 0
+        data["sig"] = WTERMSIG(return_code) if WIFSIGNALED(return_code) else 0
+        data["wall_time"] = timer() - ex_start
+        res = resource.getrusage(resource.RUSAGE_CHILDREN)
+        data["mem"] = res.ru_maxrss
+        data["time"] = res.ru_utime
+        if get_stdout:
+            try:
+                with open(os.path.join(self.td, self.stdout_file), "rb") as out:
+                    data["stdout"] = out.read()
+            except:
+                data["stdout"] = ""
+        if get_stderr:
+            try:
+                with open(os.path.join(self.td, self.stderr_file), "rb") as err:
+                    data["stderr"] = err.read()
+            except:
+                data["stderr"] = ""
+        return data
 
     cdef cleanup_handler(self, data):
         for m in self.mounts[::-1]:
