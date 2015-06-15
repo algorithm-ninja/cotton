@@ -1,9 +1,10 @@
 import errno as pyerrno
 import os
-import signal
 import shutil
+import signal
 import stat
 import subprocess
+import sys
 import pickle
 import resource
 import tempfile
@@ -108,6 +109,14 @@ cdef int wrap(void* __self):
     except:
         traceback.print_exc()
         pass
+
+class ChildError(Exception):
+    def __init__(self, exc, tb, *args):
+        self.exc = exc
+        self.tb = tb
+
+    def __str__(self):
+        return "\nThe sandbox process threw the following exception:\n%s%s: %s\n" % (''.join(self.tb), self.exc.__class__.__name__, self.exc)
 
 cdef class Cotton:
     cdef int parent_child_pipe[2]
@@ -261,7 +270,8 @@ cdef class Cotton:
                 raise ValueError("Unknown action %s!" % data['action'])
             self.send(ret)
         except Exception as e:
-            self.send(e)
+            einfo = sys.exc_info()
+            self.send(ChildError(einfo[1], traceback.format_tb(einfo[2])))
 
     cdef child_proc(self):
         self.go_on = 1
