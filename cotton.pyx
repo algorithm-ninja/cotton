@@ -1,3 +1,4 @@
+import atexit
 import errno as pyerrno
 import os
 import shutil
@@ -133,6 +134,7 @@ cdef class Cotton:
     cdef object stdin_file
     cdef object stdout_file
     cdef object stderr_file
+    cdef object sigterm_handler
 
     cdef is_child(self):
         return getpid() == 1
@@ -316,6 +318,10 @@ cdef class Cotton:
         )
         if self.pid == -1:
             raise OSError(errno, strerror(errno))
+        else:
+            atexit.register(self.cleanup)
+            self.sigterm_handler = signal.getsignal(signal.SIGTERM)
+            signal.signal(signal.SIGTERM, self.cleanup)
 
     def rlimit(self, res, limit):
         self.send({
@@ -421,6 +427,8 @@ cdef class Cotton:
         })
 
     def cleanup(self, get_files=False, archive_location="."):
+        atexit.unregister(self.cleanup)
+        signal.signal(signal.SIGTERM, self.sigterm_handler)
         self.send({
             "action": "cleanup",
             "get_files": get_files,
