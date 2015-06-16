@@ -107,6 +107,7 @@ cdef int wrap(void* __self):
     try:
         return Cotton.child_proc(self)
     except:
+        # We should not arrive here
         traceback.print_exc()
         pass
 
@@ -161,6 +162,7 @@ cdef class Cotton:
         cdef int command_pid
         cdef int return_code
         def prepare():
+            # We assume that these functions do not fail
             chdir(self.td.encode())
             chroot(self.td.encode())
             for (res, limit) in self.res_limits.iteritems():
@@ -172,6 +174,7 @@ cdef class Cotton:
             stdout=stdout, stderr=stderr, env=self.env, preexec_fn=prepare).pid
         data = dict()
         ex_start = timer()
+        # waitpid() should not fail here
         if self._wall_limit > 0:
             done = 0
             while timer() - ex_start < self._wall_limit:
@@ -197,13 +200,13 @@ cdef class Cotton:
             try:
                 with open(os.path.join(self.td, self.stdout_file), "rb") as out:
                     data["stdout"] = out.read()
-            except:
+            except IOError:
                 data["stdout"] = ""
         if get_stderr:
             try:
                 with open(os.path.join(self.td, self.stderr_file), "rb") as err:
                     data["stderr"] = err.read()
-            except:
+            except IOError:
                 data["stderr"] = ""
         return data
 
@@ -221,6 +224,12 @@ cdef class Cotton:
         umount(self.td.encode())
         os.rmdir(self.td)
         self.go_on = 0
+
+    cdef mount(self, orig, dst, fs, int flags, opt):
+        opt = opt.encode()
+        cdef int ret = mount(orig.encode(), dst.encode(), fs.encode(), flags, <char*>opt)
+        if ret == -1:
+            raise OSError(errno, strerror(errno))
 
     cdef do_work(self):
         try:
@@ -264,7 +273,7 @@ cdef class Cotton:
                     data["path"] = data["path"][1:]
                 dst = os.path.join(self.td, data["path"])
                 self.makedirs(dst)
-                mount(orig.encode(), dst.encode(), b"", MS_BIND | MS_RDONLY, b"")
+                self.mount(orig, dst, "", MS_BIND | MS_RDONLY, "")
                 self.mounts.append(dst)
             else:
                 raise ValueError("Unknown action %s!" % data['action'])
@@ -285,10 +294,8 @@ cdef class Cotton:
         self.stdin_file = "stdin"
         self.stdout_file = "stdout"
         self.stderr_file = "stderr"
-#        print(self.recv(10))
         self.td = tempfile.mkdtemp()
-        mnt_opt = ("size=%sK" % self.size).encode()
-        mount(os.path.basename(self.td).encode(), self.td.encode(), b"tmpfs", 0, <char*>mnt_opt)
+        self.mount(os.path.basename(self.td), self.td, "tmpfs", 0, "size=%sK" % self.size)
         printf("UID: %d\nEUID: %d\nPID: %d\n", getuid(), geteuid(), getpid())
         while self.go_on:
             self.do_work()
@@ -301,24 +308,14 @@ cdef class Cotton:
         self.parent_child_pipe = os.pipe()
         self.child_parent_pipe = os.pipe()
         self.size = size
-
         self.pid = clone(
             wrap,
             stack + STACK_SIZE,
             CLONE_NEWPID | CLONE_NEWUSER | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWNS | SIGCHLD,
             <void*> self
         )
-#        with open("/proc/%d/uid_map" % pid, "w") as f:
-#            f.write("0 %s 1\n" % original_uid)
-#        try:
-#            with open("/proc/%d/setgroups" % pid, "w") as f:
-#                f.write("deny")
-#        except OSError as e:
-#            if e.errno != pyerrno.ENOENT:
-#                raise
-#        with open("/proc/%d/gid_map" % pid, "w") as f:
-#            f.write("0 %s 1\n" % original_gid)
-#        self.send(['a', 'b', 'c', 15, 1.5])
+        if self.pid == -1:
+            raise OSError(errno, strerror(errno))
 
     def rlimit(self, res, limit):
         self.send({
