@@ -14,16 +14,13 @@ from timeit import default_timer as timer
 
 cimport cpython
 from libc.stdlib cimport malloc, free
-from libc.stdio cimport printf
 from libc.errno cimport errno
-from libc.string cimport strerror, strdup
+from libc.string cimport strerror
 from libc.signal cimport SIGCHLD
-from posix.unistd cimport geteuid, getuid, getpid, getgid, read, write, execve, fork, usleep, chdir, dup2
-from posix.wait cimport waitpid, WNOHANG, WIFSIGNALED, WTERMSIG, WIFEXITED, WEXITSTATUS
+from posix.unistd cimport getpid, read, write, usleep, chdir
 
 cdef extern from "sched.h":
     int clone(int (*f)(void *), void *stack, int flags, void *arg, ...)
-    int unshare(int flags)
     enum: CLONE_NEWUSER
     enum: CLONE_NEWNS
     enum: CLONE_NEWUTS
@@ -127,6 +124,7 @@ cdef class Cotton:
     cdef int size
     cdef int go_on
     cdef int _wall_limit
+    cdef char* child_stack
     cdef object mounts
     cdef object td
     cdef object env
@@ -172,32 +170,32 @@ cdef class Cotton:
         stdin = os.open(os.path.join(self.td, self.stdin_file), os.O_RDONLY | os.O_CREAT)
         stdout = open(os.path.join(self.td, self.stdout_file), "w")
         stderr = open(os.path.join(self.td, self.stderr_file), "w")
-        command_pid = subprocess.Popen(data["command"], stdin=stdin,
-            stdout=stdout, stderr=stderr, env=self.env, preexec_fn=prepare).pid
+        command = subprocess.Popen(data["command"], stdin=stdin,
+            stdout=stdout, stderr=stderr, env=self.env, preexec_fn=prepare)
         data = dict()
         ex_start = timer()
         # waitpid() should not fail here
         if self._wall_limit > 0:
             done = 0
             while timer() - ex_start < self._wall_limit:
-                done = waitpid(command_pid, &return_code, WNOHANG)
-                usleep(100)
-                if done:
+                if command.poll():
                     break
-            if not done:
-                os.kill(command_pid, signal.SIGKILL)
-                waitpid(command_pid, &return_code, 0)
+                else:
+                    usleep(1000)
+            if not command.poll():
+                command.kill()
+                command.wait()
         else:
-            waitpid(command_pid, &return_code, 0)
+            command.wait()
         os.close(stdin)
         stdout.close()
         stderr.close()
-        data["ret"] = WEXITSTATUS(return_code) if WIFEXITED(return_code) else 0
-        data["sig"] = WTERMSIG(return_code) if WIFSIGNALED(return_code) else 0
+        data["ret"] = command.returncode if command.returncode > 0 else 0
+        data["sig"] = -command.returncode if command.returncode < 0 else 0
         data["wall_time"] = timer() - ex_start
         res = resource.getrusage(resource.RUSAGE_CHILDREN)
         data["mem"] = res.ru_maxrss
-        data["time"] = res.ru_utime
+        data["time"] = res.ru_utime + res.ru_stime
         if get_stdout:
             try:
                 with open(os.path.join(self.td, self.stdout_file), "rb") as out:
@@ -298,21 +296,18 @@ cdef class Cotton:
         self.stderr_file = "stderr"
         self.td = tempfile.mkdtemp()
         self.mount(os.path.basename(self.td), self.td, "tmpfs", 0, "size=%sK" % self.size)
-        printf("UID: %d\nEUID: %d\nPID: %d\n", getuid(), geteuid(), getpid())
         while self.go_on:
             self.do_work()
         return 0
 
     def __init__(self, size=256*1024):
-        cdef int original_uid = getuid()
-        cdef int original_gid = getgid()
-        cdef char* stack = <char*> malloc(STACK_SIZE)
+        self.child_stack = <char*> malloc(STACK_SIZE)
         self.parent_child_pipe = os.pipe()
         self.child_parent_pipe = os.pipe()
         self.size = size
         self.pid = clone(
             wrap,
-            stack + STACK_SIZE,
+            self.child_stack + STACK_SIZE,
             CLONE_NEWPID | CLONE_NEWUSER | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWNS | SIGCHLD,
             <void*> self
         )
@@ -408,7 +403,7 @@ cdef class Cotton:
         })
 
     def memory_limit(self, limit):
-        self.rlimit(resource.RLIMIT_AS, (limit, limit))
+        self.rlimit(resource.RLIMIT_AS, (limit*1024, limit*1024))
 
     def time_limit(self, limit):
         self.rlimit(resource.RLIMIT_CPU, (limit, limit))
@@ -434,3 +429,4 @@ cdef class Cotton:
             "get_files": get_files,
             "archive_location": archive_location
         })
+        free(self.child_stack)
