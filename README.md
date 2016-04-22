@@ -1,2 +1,2 @@
 # cotton
-Cotton is process sandbox written in Python
+Cotton is process sandbox written in C++
