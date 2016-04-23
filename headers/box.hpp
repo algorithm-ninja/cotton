@@ -28,6 +28,7 @@ static const feature_mask_t running_time         = 0x00000200;
 static const feature_mask_t wall_time            = 0x00000400;
 static const feature_mask_t clear                = 0x00000800;
 static const feature_mask_t process_isolation    = 0x00001000; // Isolation from other processes
+static const feature_mask_t io_redirection       = 0x00002000;
 
 // Times should be microseconds.
 // Space usages should be kilobytes 
@@ -45,6 +46,9 @@ public:
         throw std::invalid_argument("This method is not implemented by this sandbox!");
     }
     virtual size_t create_box() {
+        throw std::invalid_argument("This method is not implemented by this sandbox!");
+    }
+    virtual std::string get_root() {
         throw std::invalid_argument("This method is not implemented by this sandbox!");
     }
     virtual bool check() {
@@ -92,6 +96,24 @@ public:
     virtual bool umount(const std::string& box_path) {
         throw std::invalid_argument("This method is not implemented by this sandbox!");
     }
+    virtual bool redirect_stdin(const std::string& stdin_file) {
+        throw std::invalid_argument("This method is not implemented by this sandbox!");
+    }
+    virtual bool redirect_stdout(const std::string& stdout_file) {
+        throw std::invalid_argument("This method is not implemented by this sandbox!");
+    }
+    virtual bool redirect_stderr(const std::string& stderr_file) {
+        throw std::invalid_argument("This method is not implemented by this sandbox!");
+    }
+    virtual std::string get_stdin() {
+        throw std::invalid_argument("This method is not implemented by this sandbox!");
+    }
+    virtual std::string get_stdout() {
+        throw std::invalid_argument("This method is not implemented by this sandbox!");
+    }
+    virtual std::string get_stderr() {
+        throw std::invalid_argument("This method is not implemented by this sandbox!");
+    }
     virtual bool run(const std::string& command, const std::vector<std::string>& args) {
         throw std::invalid_argument("This method is not implemented by this sandbox!");
     }
@@ -102,6 +124,9 @@ public:
         throw std::invalid_argument("This method is not implemented by this sandbox!");
     }
     virtual size_t get_wall_time() {
+        throw std::invalid_argument("This method is not implemented by this sandbox!");
+    }
+    virtual size_t get_return_code() {
         throw std::invalid_argument("This method is not implemented by this sandbox!");
     }
     virtual bool clear() {
