@@ -7,7 +7,8 @@
 #include <stdexcept>
 #include <boost/serialization/export.hpp>
 #include <boost/archive/text_oarchive.hpp>
-#define REGISTER_SANDBOX(sbx) __attribute((constructor)) static void register_sandbox_ ## sbx() { \
+#include <boost/archive/text_iarchive.hpp>
+#define REGISTER_SANDBOX(sbx) __attribute__((constructor)) static void register_sandbox_ ## sbx() { \
     box_creators[#sbx] = &create_sandbox<sbx>; \
 } \
 BOOST_CLASS_EXPORT(sbx)
@@ -26,11 +27,13 @@ static const feature_mask_t memory_usage         = 0x00000100;
 static const feature_mask_t running_time         = 0x00000200;
 static const feature_mask_t wall_time            = 0x00000400;
 static const feature_mask_t clear                = 0x00000800;
+static const feature_mask_t process_isolation    = 0x00001000; // Isolation from other processes
 
-// Times should be milliseconds.
+// Times should be microseconds.
 // Space usages should be kilobytes 
 class SandBox {
 public:
+    friend class boost::serialization::access;
     SandBox(const std::string& base_path) {}
     virtual bool is_available() {
         throw std::invalid_argument("This method is not implemented by this sandbox!");
@@ -107,10 +110,13 @@ public:
     virtual bool remove() {
         throw std::invalid_argument("This method is not implemented by this sandbox!");
     }
+    template <typename Archive> void serialize(Archive &ar, const unsigned int version) {};
     virtual ~SandBox() = 0;
 };
 
-extern std::map<std::string, std::function<SandBox*(const std::string& base_path)>> box_creators;
+typedef std::map<std::string, std::function<SandBox*(const std::string& base_path)>> BoxCreators;
+
+extern BoxCreators box_creators;
 template<typename T> SandBox* create_sandbox(const std::string& base_path) {return new T(base_path);}
 
 #endif
