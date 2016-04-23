@@ -4,7 +4,8 @@
 #include <map>
 #include <functional>
 #include <cstdint>
-#include <stdexcept>
+#include "logger.hpp"
+
 #include <boost/serialization/export.hpp>
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
@@ -14,132 +15,155 @@
 BOOST_CLASS_EXPORT(sbx)
 
 
-typedef uint64_t feature_mask_t;
-static const feature_mask_t memory_limit         = 0x00000001;
-static const feature_mask_t time_limit           = 0x00000002;
-static const feature_mask_t wall_time_limit      = 0x00000004;
-static const feature_mask_t process_limit        = 0x00000008; // Limits process creation
-static const feature_mask_t process_limit_full   = 0x00000010; // Limits the number of processes
-static const feature_mask_t disk_limit           = 0x00000020; // Works for non-malicious errors
-static const feature_mask_t disk_limit_full      = 0x00000040; // Works for malicious attempts
-static const feature_mask_t folder_mount         = 0x00000080;
-static const feature_mask_t memory_usage         = 0x00000100;
-static const feature_mask_t running_time         = 0x00000200;
-static const feature_mask_t wall_time            = 0x00000400;
-static const feature_mask_t clear                = 0x00000800;
-static const feature_mask_t process_isolation    = 0x00001000; // Isolation from other processes
-static const feature_mask_t io_redirection       = 0x00002000;
-
 // Times should be microseconds.
 // Space usages should be kilobytes 
 class SandBox {
 public:
+    typedef std::function<void(int, const std::string& str)> callback_t;
+protected:
+    const callback_t* on_error;
+    const callback_t* on_warning;
+    const std::string& base_path;
+    void error(int code, const std::string& err) {(*on_error)(code, err);}
+    void warning(int code, const std::string& err) {(*on_warning)(code, err);}
+public:
+    typedef uint64_t feature_mask_t;
+    static const feature_mask_t memory_limit         = 0x00000001;
+    static const feature_mask_t time_limit           = 0x00000002;
+    static const feature_mask_t wall_time_limit      = 0x00000004;
+    static const feature_mask_t process_limit        = 0x00000008; // Limits process creation
+    static const feature_mask_t process_limit_full   = 0x00000010; // Limits the number of processes
+    static const feature_mask_t disk_limit           = 0x00000020; // Works for non-malicious errors
+    static const feature_mask_t disk_limit_full      = 0x00000040; // Works for malicious attempts
+    static const feature_mask_t folder_mount         = 0x00000080;
+    static const feature_mask_t memory_usage         = 0x00000100;
+    static const feature_mask_t running_time         = 0x00000200;
+    static const feature_mask_t wall_time            = 0x00000400;
+    static const feature_mask_t clearable            = 0x00000800;
+    static const feature_mask_t process_isolation    = 0x00001000; // Isolation from other processes
+    static const feature_mask_t io_redirection       = 0x00002000;
     friend class boost::serialization::access;
-    SandBox(const std::string& base_path) {}
-    virtual bool is_available() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
-    }
-    virtual int get_penality() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
-    }
-    virtual feature_mask_t get_features() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
-    }
-    virtual size_t create_box() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
-    }
-    virtual std::string get_root() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
-    }
+
+    void set_error_handler(const callback_t& cb) {on_error = &cb;}
+    void set_warning_handler(const callback_t& cb) {on_warning = &cb;}
+
+    SandBox(const std::string& base_path): base_path(base_path) {}
+    virtual bool is_available() = 0;
+    virtual int get_penality() = 0;
+    virtual feature_mask_t get_features() = 0;
+    virtual size_t create_box() = 0;
+    virtual std::string get_root() = 0;
     virtual bool check() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return false;
     }
     virtual bool set_memory_limit(size_t limit) {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return false;
     }
     virtual bool set_time_limit(size_t limit) {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return false;
     }
     virtual bool set_wall_time_limit(size_t limit) {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return false;
     }
     virtual bool set_process_limit(size_t limit) {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return false;
     }
     virtual bool set_disk_limit(size_t limit) {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return false;
     }
     virtual size_t get_memory_limit() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return 0;
     }
     virtual size_t get_time_limit() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return 0;
     }
     virtual size_t get_wall_time_limit() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return 0;
     }
     virtual size_t get_process_limit() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return 0;
     }
     virtual size_t get_disk_limit() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return 0;
     }
     virtual std::vector<std::pair<std::string, std::string>> mount() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return {};
     }
     virtual std::string mount(const std::string& box_path) {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return "";
     }
     virtual bool mount(const std::string& box_path, const std::string& orig_path, bool rw = false) {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return false;
     }
     virtual bool umount(const std::string& box_path) {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return false;
     }
     virtual bool redirect_stdin(const std::string& stdin_file) {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return false;
     }
     virtual bool redirect_stdout(const std::string& stdout_file) {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return false;
     }
     virtual bool redirect_stderr(const std::string& stderr_file) {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return false;
     }
     virtual std::string get_stdin() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return "";
     }
     virtual std::string get_stdout() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return "";
     }
     virtual std::string get_stderr() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return "";
     }
-    virtual bool run(const std::string& command, const std::vector<std::string>& args) {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
-    }
+    virtual bool run(const std::string& command, const std::vector<std::string>& args) = 0;
     virtual size_t get_memory_usage() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return 0;
     }
     virtual size_t get_running_time() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return 0;
     }
     virtual size_t get_wall_time() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return 0;
     }
     virtual size_t get_return_code() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return 0;
     }
     virtual bool clear() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
+        error(254, "This method is not implemented by this sandbox!");
+        return false;
     }
-    virtual bool remove() {
-        throw std::invalid_argument("This method is not implemented by this sandbox!");
-    }
+    virtual bool remove() = 0;
     template <typename Archive> void serialize(Archive &ar, const unsigned int version) {};
     virtual ~SandBox() = 0;
 };
 
-typedef std::map<std::string, std::function<SandBox*(const std::string& base_path)>> BoxCreators;
+typedef std::map<std::string, std::function<SandBox*(const std::string&)>> BoxCreators;
 
 extern BoxCreators box_creators;
 template<typename T> SandBox* create_sandbox(const std::string& base_path) {return new T(base_path);}

@@ -1,6 +1,6 @@
 OBJECTS=$(patsubst src/%.cpp,build/%.o,$(wildcard src/*cpp))
 CC=g++
-CXXFLAGS=-O2 -Wall -std=c++11 -Iheaders
+CXXFLAGS=-O2 -Wall -std=c++11 -Iheaders -ggdb
 LDFLAGS=-lboost_program_options
 
 .PHONY: all clean
