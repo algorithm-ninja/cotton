@@ -11,6 +11,7 @@ public:
     virtual void result(bool res) = 0;
     virtual void result(size_t res) = 0;
     virtual void result(const std::string& res) = 0;
+    virtual void result(const std::vector<std::pair<std::string, std::string>>& res) = 0;
     virtual void result(const std::vector<std::tuple<std::string, int, std::vector<std::string>>>& res) = 0;
     virtual void write() = 0;
     virtual ~CottonLogger() = default;
@@ -20,6 +21,7 @@ class CottonTTYLogger: public CottonLogger {
 #ifdef __unix__
     static constexpr const char* const error_color = "\033[31;1m";
     static constexpr const char* const warning_color = "\033[31;3m";
+    static constexpr const char* const boxname_color = "\033[1;1m";
     static constexpr const char* const reset_color = "\033[;m";
 #else
     static constexpr const char* const error_color = "";
@@ -33,6 +35,7 @@ public:
     void result(bool res) override;
     void result(size_t res) override;
     void result(const std::string& res) override;
+    void result(const std::vector<std::pair<std::string, std::string>>& res) override;
     void result(const std::vector<std::tuple<std::string, int, std::vector<std::string>>>& res) override;
     void write() override {};
 };
@@ -48,6 +51,7 @@ public:
     void result(bool res) override;
     void result(size_t res) override;
     void result(const std::string& res) override;
+    void result(const std::vector<std::pair<std::string, std::string>>& res) override;
     void result(const std::vector<std::tuple<std::string, int, std::vector<std::string>>>& res) override;
     void write() override;
 };

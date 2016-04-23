@@ -24,6 +24,7 @@ protected:
     const callback_t* on_error;
     const callback_t* on_warning;
     const std::string& base_path;
+    size_t id_;
     void error(int code, const std::string& err) {(*on_error)(code, err);}
     void warning(int code, const std::string& err) {(*on_warning)(code, err);}
 public:
@@ -46,6 +47,14 @@ public:
 
     void set_error_handler(const callback_t& cb) {on_error = &cb;}
     void set_warning_handler(const callback_t& cb) {on_warning = &cb;}
+    size_t get_id() const {return id_;}
+    static std::string box_base_path(const std::string& bp, size_t id) {
+#ifdef __unix__
+        return bp + "/box_" + std::to_string(id) + "/";
+#else
+        return "pippo";
+#endif
+    }
 
     SandBox(const std::string& base_path): base_path(base_path) {}
     virtual bool is_available() = 0;
@@ -158,8 +167,10 @@ public:
         error(254, "This method is not implemented by this sandbox!");
         return false;
     }
-    virtual bool remove() = 0;
-    template <typename Archive> void serialize(Archive &ar, const unsigned int version) {};
+    virtual bool delete_box() = 0;
+    template <typename Archive> void serialize(Archive &ar, const unsigned int version) {
+        ar & id_;
+    };
     virtual ~SandBox() = 0;
 };
 
