@@ -47,6 +47,7 @@ std::vector<std::tuple<std::string, int, std::vector<std::string>>> list_boxes(c
         TEST_FEATURE(clearable);
         TEST_FEATURE(process_isolation);
         TEST_FEATURE(io_redirection);
+        TEST_FEATURE(network_isolation);
     }
     return res;
 }

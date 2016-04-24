@@ -35,8 +35,9 @@ public:
     static const feature_mask_t wall_time_limit      = 0x00000004;
     static const feature_mask_t process_limit        = 0x00000008; // Limits process creation
     static const feature_mask_t process_limit_full   = 0x00000010; // Limits the number of processes
-    static const feature_mask_t disk_limit           = 0x00000020; // Works for non-malicious errors
-    static const feature_mask_t disk_limit_full      = 0x00000040; // Works for malicious attempts
+    // Works for non-malicious errors, or may interfere with non-malicious uses of open()
+    static const feature_mask_t disk_limit           = 0x00000020;
+    static const feature_mask_t disk_limit_full      = 0x00000040; // Just works :)
     static const feature_mask_t folder_mount         = 0x00000080;
     static const feature_mask_t memory_usage         = 0x00000100;
     static const feature_mask_t running_time         = 0x00000200;
@@ -44,6 +45,7 @@ public:
     static const feature_mask_t clearable            = 0x00000800;
     static const feature_mask_t process_isolation    = 0x00001000; // Isolation from other processes
     static const feature_mask_t io_redirection       = 0x00002000;
+    static const feature_mask_t network_isolation    = 0x00004000;
     friend class boost::serialization::access;
 
     void set_error_handler(const callback_t& cb) {on_error = &cb;}
