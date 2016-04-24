@@ -22,17 +22,17 @@ void sig_handler(int sig) {
 #endif
 
 
-#define TEST_FEATURE(feature) if (features & SandBox::feature) std::get<2>(res.back()).emplace_back(#feature);
+#define TEST_FEATURE(feature) if (features & Sandbox::feature) std::get<2>(res.back()).emplace_back(#feature);
 std::vector<std::tuple<std::string, int, std::vector<std::string>>> list_boxes(const std::string& box_root) {
     std::vector<std::tuple<std::string, int, std::vector<std::string>>> res;
     for (const auto& creator: box_creators) {
-        std::unique_ptr<SandBox> s(creator.second(box_root));
+        std::unique_ptr<Sandbox> s(creator.second(box_root));
         using namespace std::placeholders;
         s->set_error_handler(std::bind(&CottonLogger::error, logger, _1, _2));
         s->set_warning_handler(std::bind(&CottonLogger::warning, logger, _1, _2));
         if (!s->is_available()) continue;
         res.emplace_back(creator.first, s->get_penality(), std::vector<std::string>{});
-        SandBox::feature_mask_t features = s->get_features();
+        Sandbox::feature_mask_t features = s->get_features();
         TEST_FEATURE(memory_limit);
         TEST_FEATURE(time_limit);
         TEST_FEATURE(wall_time_limit);
@@ -60,25 +60,25 @@ size_t parse_space_limit(const std::string& s) {
     return std::stoi(s)*1024UL;
 }
 
-std::unique_ptr<SandBox> load_box(const std::string& box_root, const std::string& box_id) {
+std::unique_ptr<Sandbox> load_box(const std::string& box_root, const std::string& box_id) {
     try {
-        std::ifstream fin(SandBox::box_base_path(box_root, std::stoi(box_id)) + "boxinfo");
+        std::ifstream fin(Sandbox::box_base_path(box_root, std::stoi(box_id)) + "boxinfo");
         boost::archive::text_iarchive ia{fin};
-        SandBox* s;
+        Sandbox* s;
         ia >> s;
         using namespace std::placeholders;
         s->set_error_handler(std::bind(&CottonLogger::error, logger, _1, _2));
         s->set_warning_handler(std::bind(&CottonLogger::warning, logger, _1, _2));
-        return std::unique_ptr<SandBox>(s);
+        return std::unique_ptr<Sandbox>(s);
     } catch (std::exception& e) {
         logger->error(3, std::string("Error loading the sandbox: ") + e.what());
         return nullptr;
     }
 }
 
-void save_box(const std::string& box_root, std::unique_ptr<SandBox>& s) {
+void save_box(const std::string& box_root, std::unique_ptr<Sandbox>& s) {
     try {
-        std::ofstream fout(SandBox::box_base_path(box_root, s->get_id()) + "boxinfo");
+        std::ofstream fout(Sandbox::box_base_path(box_root, s->get_id()) + "boxinfo");
         boost::archive::text_oarchive oa{fout};
         oa << s.get();
     } catch (std::exception& e) {
@@ -92,7 +92,7 @@ size_t create_box(const std::string& box_root, const std::string& box_type) {
         logger->error(2, "The given box type does not exist!");
         return 0;
     }
-    std::unique_ptr<SandBox> s(box_creators[box_type](box_root));
+    std::unique_ptr<Sandbox> s(box_creators[box_type](box_root));
     if (!s->is_available()) {
         logger->error(2, "The given box type is not available!");
         return 0;

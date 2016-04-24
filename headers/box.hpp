@@ -17,7 +17,7 @@ BOOST_CLASS_EXPORT(sbx)
 
 // Times should be microseconds.
 // Space usages should be kilobytes 
-class SandBox {
+class Sandbox {
 public:
     typedef std::function<void(int, const std::string& str)> callback_t;
 protected:
@@ -27,7 +27,7 @@ protected:
     size_t id_;
     void error(int code, const std::string& err) {(*on_error)(code, err);}
     void warning(int code, const std::string& err) {(*on_warning)(code, err);}
-    SandBox() {} // Constructor for boost::serialize
+    Sandbox() {} // Constructor for boost::serialize
 public:
     typedef uint64_t feature_mask_t;
     static const feature_mask_t memory_limit         = 0x00000001;
@@ -57,7 +57,7 @@ public:
 #endif
     }
 
-    SandBox(const std::string& base_path): base_path(base_path) {}
+    Sandbox(const std::string& base_path): base_path(base_path) {}
     virtual bool is_available() = 0;
     virtual int get_penality() = 0;
     virtual feature_mask_t get_features() = 0;
@@ -173,12 +173,12 @@ public:
         ar & id_;
         ar & base_path;
     };
-    virtual ~SandBox() = default;
+    virtual ~Sandbox() = default;
 };
 
-typedef std::map<std::string, std::function<SandBox*(const std::string&)>> BoxCreators;
+typedef std::map<std::string, std::function<Sandbox*(const std::string&)>> BoxCreators;
 
 extern BoxCreators box_creators;
-template<typename T> SandBox* create_sandbox(const std::string& base_path) {return new T(base_path);}
+template<typename T> Sandbox* create_sandbox(const std::string& base_path) {return new T(base_path);}
 
 #endif
