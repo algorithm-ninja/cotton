@@ -1,6 +1,5 @@
 #include "logger.hpp"
 #include <iostream>
-#include <boost/algorithm/string/replace.hpp>
 
 void CottonTTYLogger::error(int code, const std::string& error) {
     std::cerr << error_color << "Error " << code;
@@ -41,54 +40,33 @@ void CottonJSONLogger::warning(int code, const std::string& warning) {
     warnings.emplace_back(code, warning);
 }
 void CottonJSONLogger::result(bool res) {
-    result_ = res?"true":"false";
+    result_ = to_json(res);
 }
 void CottonJSONLogger::result(size_t res) {
-    result_ = std::to_string(res);
+    result_ = to_json(res);
 }
 void CottonJSONLogger::result(const std::string& res) {
-    result_ = res;
-    // should not be necessary
-    boost::replace_all(result_, "\\", "\\\\");
-    boost::replace_all(result_, "\"", "\\\"");
-    result_ = '"' + result_ + '"';
+    result_ = to_json(res);
 }
 void CottonJSONLogger::result(const std::vector<std::pair<std::string, std::string>>& res) {
-    std::cout << "{";
-    for (unsigned i=0; i<res.size(); i++) {
-        std::cout << "\"" << res[i].first << "\": \"" << res[i].second << "\"";
-        if (i+1 != res.size()) std::cout << ", ";
-    }
-    std::cout << "}";
+    result_ = to_json_obj(res);
 }
 void CottonJSONLogger::result(const std::vector<std::tuple<std::string, int, std::vector<std::string>>>& res) {
-    result_ = "[";
-    for (unsigned i=0; i<res.size(); i++) {
-        result_ += "{\"name\": " + std::get<0>(res[i]);
-        result_ += ", \"penality\": " + std::to_string(std::get<1>(res[i]));
-        result_ += ", \"features\": [";
-        for (unsigned j=0; j<std::get<2>(res[i]).size(); j++) {
-            result_ += "\"" + std::get<2>(res[i])[j] + "\"";
-            if (j+1 != std::get<2>(res[i]).size()) result_ += ", ";
-        }
-        result_ += "]}";
-        if (i+1 != res.size()) result_ += ", ";
-    }
-    result_ += "]";
+    result_ = to_json_arr(res, [](const std::tuple<std::string, int, std::vector<std::string>>& v) {
+        return to_json_obj(
+            "name", std::get<0>(v),
+            "penality", std::get<1>(v),
+            "features", std::get<2>(v)
+        );
+    });
 }
 void CottonJSONLogger::write() {
-    std::cout << "{\"result\": " << result_;
-    std::cout << ", \"errors\": [";
-    for (unsigned i=0; i<errors.size(); i++) {
-        std::cout << "{\"code\": " << errors[i].first;
-        std::cout << ", \"message\": \"" << errors[i].second << "\"}";
-        if (i+1 != errors.size()) std::cout << ", ";
-    }
-    std::cout << "], \"warnings\": [";
-    for (unsigned i=0; i<warnings.size(); i++) {
-        std::cout << "{\"code\": " << warnings[i].first;
-        std::cout << ", \"message\": \"" << warnings[i].second << "\"}";
-        if (i+1 != warnings.size()) std::cout << ", ";
-    }
-    std::cout << "]}" << std::endl;
+    auto ew_converter = [] (const std::pair<int, std::string>& msg) {
+        return to_json_obj("code", msg.first, "message", msg.second);
+    };
+    std::cout << to_json_obj(
+        "result", result_,
+        "errors", to_json_arr(errors, ew_converter),
+        "warnings", to_json_arr(warnings, ew_converter)
+    ) << std::endl;
 }

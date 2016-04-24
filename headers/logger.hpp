@@ -2,6 +2,7 @@
 #define COTTON_LOGGER_HPP
 #include <tuple>
 #include <vector>
+#include "simple_json.hpp"
 
 class CottonLogger {
 public:
@@ -41,7 +42,7 @@ public:
 };
 
 class CottonJSONLogger: public CottonLogger {
-    std::string result_ = "null";
+    json_raw_string result_ = "null";
     std::vector<std::pair<int, std::string>> errors;
     std::vector<std::pair<int, std::string>> warnings;
 public:
