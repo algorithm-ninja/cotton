@@ -9,7 +9,7 @@
 #include <boost/serialization/export.hpp>
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
-#define REGISTER_SANDBOX(sbx) __attribute__((constructor)) static void register_sandbox_ ## sbx() { \
+#define REGISTER_SANDBOX(sbx) __attribute__((constructor(65535))) static void register_sandbox_ ## sbx() { \
     box_creators[#sbx] = &create_sandbox<sbx>; \
 } \
 BOOST_CLASS_EXPORT(sbx)
@@ -23,10 +23,11 @@ public:
 protected:
     const callback_t* on_error;
     const callback_t* on_warning;
-    const std::string& base_path;
+    std::string base_path;
     size_t id_;
     void error(int code, const std::string& err) {(*on_error)(code, err);}
     void warning(int code, const std::string& err) {(*on_warning)(code, err);}
+    SandBox() {} // Constructor for boost::serialize
 public:
     typedef uint64_t feature_mask_t;
     static const feature_mask_t memory_limit         = 0x00000001;
@@ -170,8 +171,9 @@ public:
     virtual bool delete_box() = 0;
     template <typename Archive> void serialize(Archive &ar, const unsigned int version) {
         ar & id_;
+        ar & base_path;
     };
-    virtual ~SandBox() = 0;
+    virtual ~SandBox() = default;
 };
 
 typedef std::map<std::string, std::function<SandBox*(const std::string&)>> BoxCreators;

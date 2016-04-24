@@ -9,7 +9,7 @@
 #endif
 namespace po = boost::program_options;
 
-BoxCreators box_creators;
+BoxCreators box_creators __attribute__((init_priority(101)));
 CottonLogger* logger;
 std::string program_name;
 
@@ -27,6 +27,9 @@ std::vector<std::tuple<std::string, int, std::vector<std::string>>> list_boxes(c
     std::vector<std::tuple<std::string, int, std::vector<std::string>>> res;
     for (const auto& creator: box_creators) {
         std::unique_ptr<SandBox> s(creator.second(box_root));
+        using namespace std::placeholders;
+        s->set_error_handler(std::bind(&CottonLogger::error, logger, _1, _2));
+        s->set_warning_handler(std::bind(&CottonLogger::warning, logger, _1, _2));
         if (!s->is_available()) continue;
         res.emplace_back(creator.first, s->get_penality(), std::vector<std::string>{});
         SandBox::feature_mask_t features = s->get_features();
@@ -63,6 +66,9 @@ std::unique_ptr<SandBox> load_box(const std::string& box_root, const std::string
         boost::archive::text_iarchive ia{fin};
         SandBox* s;
         ia >> s;
+        using namespace std::placeholders;
+        s->set_error_handler(std::bind(&CottonLogger::error, logger, _1, _2));
+        s->set_warning_handler(std::bind(&CottonLogger::warning, logger, _1, _2));
         return std::unique_ptr<SandBox>(s);
     } catch (std::exception& e) {
         logger->error(3, std::string("Error loading the sandbox: ") + e.what());
