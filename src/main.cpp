@@ -48,6 +48,8 @@ std::vector<std::tuple<std::string, int, std::vector<std::string>>> list_boxes(c
         TEST_FEATURE(process_isolation);
         TEST_FEATURE(io_redirection);
         TEST_FEATURE(network_isolation);
+        TEST_FEATURE(return_code);
+        TEST_FEATURE(signal);
     }
     return res;
 }
@@ -251,6 +253,8 @@ size_t get_stat(const std::string& box_root, const std::string& box_id, const st
         return s->get_wall_time();
     } else if (what == "return-code") {
         return s->get_return_code();
+    } else if (what == "signal") {
+        return s->get_signal();
     } else {
         logger->error(2, "Invalid statistic type given!");
         return 0;

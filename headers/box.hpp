@@ -46,6 +46,8 @@ public:
     static const feature_mask_t process_isolation    = 0x00001000; // Isolation from other processes
     static const feature_mask_t io_redirection       = 0x00002000;
     static const feature_mask_t network_isolation    = 0x00004000;
+    static const feature_mask_t return_code          = 0x00008000;
+    static const feature_mask_t signal               = 0x00010000;
     friend class boost::serialization::access;
 
     void set_error_handler(const callback_t& cb) {on_error = &cb;}
@@ -163,6 +165,10 @@ public:
         return 0;
     }
     virtual size_t get_return_code() {
+        error(254, "This method is not implemented by this sandbox!");
+        return 0;
+    }
+    virtual size_t get_signal() {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
