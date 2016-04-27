@@ -111,7 +111,7 @@ protected:
                 send_error(1, errno);
                 exit(1);
             }
-            dup2(fileno(stdin), stdin_fd);
+            dup2(stdin_fd, fileno(stdin));
         }
         if (stdout_ != "") {
             int stdout_fd = open((box_base_path(base_path, id_) + stdout_).c_str(), O_RDWR);
@@ -119,7 +119,7 @@ protected:
                 send_error(2, errno);
                 exit(1);
             }
-            dup2(fileno(stdout), stdout_fd);
+            dup2(stdout_fd, fileno(stdout));
         }
         if (stderr_ != "") {
             int stderr_fd = open((box_base_path(base_path, id_) + stderr_).c_str(), O_RDWR);
@@ -127,7 +127,7 @@ protected:
                 send_error(3, errno);
                 exit(1);
             }
-            dup2(fileno(stderr), stderr_fd);
+            dup2(stderr_fd, fileno(stderr));
         }
         // Make the pipe close on the call to exec()
         fcntl(comm[1], F_SETFD, FD_CLOEXEC);
