@@ -96,6 +96,8 @@ size_t create_box(const std::string& box_root, const std::string& box_type) {
         return 0;
     }
     std::unique_ptr<Sandbox> s(box_creators[box_type](box_root));
+    s->set_error_handler(std::bind(&CottonLogger::error, logger, std::placeholders::_1, std::placeholders::_2));
+    s->set_warning_handler(std::bind(&CottonLogger::warning, logger, std::placeholders::_1, std::placeholders::_2));
     if (!s->is_available()) {
         logger->error(2, "The given box type is not available!");
         return 0;
@@ -329,7 +331,7 @@ std::vector<std::string> parse_subcommand_options(
         for (auto arg: optional_args) std::cerr << " [" << arg;
         if (trailing_args != nullptr)
             std::cerr << " [" << trailing_args << " ... ]";
-        for (unsigned i=0; i<optional_args.size(); i++) std::cerr << "]"; 
+        for (unsigned i=0; i<optional_args.size(); i++) std::cerr << "]";
         std::cerr << std::endl << std::endl;
         std::cerr << global_opts << std::endl;
         std::cerr << subcommand_descr;
