@@ -100,6 +100,7 @@ protected:
             case 2: return "Cannot open stdout file";
             case 3: return "Cannot open stderr file";
             case 4: return "execv failed";
+            case 5: return "chdir failed";
             default: return "Unknown error";
         }
     }
@@ -120,8 +121,10 @@ protected:
         if (!setup_io_redirect(stdin_, fileno(stdin), O_RDONLY)) exit(1);
         if (!setup_io_redirect(stdout_, fileno(stdout), O_RDWR)) exit(1);
         if (!setup_io_redirect(stderr_, fileno(stderr), O_RDWR)) exit(1);
+
         // Make the pipe close on the call to exec()
         fcntl(comm[1], F_SETFD, FD_CLOEXEC);
+
         // Build arguments for execve
         std::string executable = get_root() + command;
         std::vector<char*> e_args;
@@ -135,6 +138,13 @@ protected:
             e_args.push_back(tmp);
         }
         e_args.push_back(nullptr);
+
+        // Change directory to box_root
+        if (chdir(get_root().c_str()) != 0) {
+            send_error(5, errno);
+            exit(1);
+        }
+
         // Set up limits
         struct rlimit rlim;
         rlim.rlim_cur = rlim.rlim_max = RLIM_INFINITY;
