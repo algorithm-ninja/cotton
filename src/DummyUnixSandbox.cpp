@@ -52,12 +52,12 @@ protected:
             }
             current_attempt = box_base_path(base_path, box_id) + "file_root/";
             int err = rm_rf(current_attempt);
-            if (err) {
-                error(4, serror("Error deleting old file_root for " + current_attempt, err));
+            if (err && err != ENOENT) {
+                error(4, serror("Error deleting old file_root " + current_attempt, err));
                 return 0;
             }
             if (mkdir(current_attempt.c_str(), box_mode) == -1) {
-                error(4, serror("Error creating file_root for " + current_attempt));
+                error(4, serror("Error creating file_root " + current_attempt));
                 return 0;
             }
             id_ = box_id;

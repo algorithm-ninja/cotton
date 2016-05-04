@@ -27,9 +27,8 @@ std::vector<std::tuple<std::string, int, std::vector<std::string>>> list_boxes(c
     std::vector<std::tuple<std::string, int, std::vector<std::string>>> res;
     for (const auto& creator: box_creators) {
         std::unique_ptr<Sandbox> s(creator.second(box_root));
-        using namespace std::placeholders;
-        s->set_error_handler(std::bind(&CottonLogger::error, logger, _1, _2));
-        s->set_warning_handler(std::bind(&CottonLogger::warning, logger, _1, _2));
+        s->set_error_handler(logger->get_error_function());
+        s->set_warning_handler(logger->get_warning_function());
         if (!s->is_available()) continue;
         res.emplace_back(creator.first, s->get_penality(), std::vector<std::string>{});
         Sandbox::feature_mask_t features = s->get_features();
@@ -69,9 +68,8 @@ std::unique_ptr<Sandbox> load_box(const std::string& box_root, const std::string
         boost::archive::text_iarchive ia{fin};
         Sandbox* s;
         ia >> s;
-        using namespace std::placeholders;
-        s->set_error_handler(std::bind(&CottonLogger::error, logger, _1, _2));
-        s->set_warning_handler(std::bind(&CottonLogger::warning, logger, _1, _2));
+        s->set_error_handler(logger->get_error_function());
+        s->set_warning_handler(logger->get_warning_function());
         return std::unique_ptr<Sandbox>(s);
     } catch (std::exception& e) {
         logger->error(3, std::string("Error loading the sandbox: ") + e.what());
@@ -96,8 +94,8 @@ size_t create_box(const std::string& box_root, const std::string& box_type) {
         return 0;
     }
     std::unique_ptr<Sandbox> s(box_creators[box_type](box_root));
-    s->set_error_handler(std::bind(&CottonLogger::error, logger, std::placeholders::_1, std::placeholders::_2));
-    s->set_warning_handler(std::bind(&CottonLogger::warning, logger, std::placeholders::_1, std::placeholders::_2));
+    s->set_error_handler(logger->get_error_function());
+    s->set_warning_handler(logger->get_warning_function());
     if (!s->is_available()) {
         logger->error(2, "The given box type is not available!");
         return 0;

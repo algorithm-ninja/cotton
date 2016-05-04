@@ -2,7 +2,6 @@
 #define COTTON_BOX_HPP
 #include <string>
 #include <map>
-#include <functional>
 #include <cstdint>
 #include "logger.hpp"
 
@@ -18,8 +17,6 @@ BOOST_CLASS_EXPORT(sbx)
 // Times should be microseconds.
 // Space usages should be kilobytes 
 class Sandbox {
-public:
-    typedef std::function<void(int, const std::string& str)> callback_t;
 protected:
     const callback_t* on_error;
     const callback_t* on_warning;

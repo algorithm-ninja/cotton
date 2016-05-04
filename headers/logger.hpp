@@ -2,10 +2,20 @@
 #define COTTON_LOGGER_HPP
 #include <tuple>
 #include <vector>
+#include <functional>
 #include "simple_json.hpp"
+typedef std::function<void(int, const std::string& str)> callback_t;
 
 class CottonLogger {
+    callback_t error_function;
+    callback_t warning_function;
 public:
+    CottonLogger():
+        error_function(std::bind(&CottonLogger::error, this, std::placeholders::_1, std::placeholders::_2)),
+        warning_function(std::bind(&CottonLogger::warning, this, std::placeholders::_1, std::placeholders::_2))
+    {}
+    const callback_t& get_error_function() {return error_function;}
+    const callback_t& get_warning_function() {return warning_function;}
     virtual bool isttylogger() = 0;
     virtual void error(int code, const std::string& error) = 0;
     virtual void warning(int code, const std::string& warning) = 0;
@@ -30,6 +40,7 @@ class CottonTTYLogger: public CottonLogger {
     static constexpr const char* const reset_color = "";
 #endif
 public:
+    using CottonLogger::CottonLogger;
     bool isttylogger() override {return true;};
     void error(int code, const std::string& error) override;
     void warning(int code, const std::string& warning) override;
@@ -46,6 +57,7 @@ class CottonJSONLogger: public CottonLogger {
     std::vector<std::pair<int, std::string>> errors;
     std::vector<std::pair<int, std::string>> warnings;
 public:
+    using CottonLogger::CottonLogger;
     bool isttylogger() override {return false;};
     void error(int code, const std::string& error) override;
     void warning(int code, const std::string& warning) override;
