@@ -38,8 +38,8 @@ protected:
         bool has_lock_;
     public:
         BoxLocker(const DummyUnixSandbox* box, const std::string& lock): box(box) {
-            std::string lock_name = box->get_root() + lock;
-            if (open(lock_name.c_str(), O_RDWR | O_CREAT | O_EXCL) == -1) {
+            lock_name = box->get_root() + "../" + lock;
+            if (open(lock_name.c_str(), O_RDWR | O_CREAT | O_EXCL, DummyUnixSandbox::file_mode) == -1) {
                 box->error(4, serror("Error acquiring lock " + lock_name));
                 has_lock_ = false;
             } else {
@@ -49,7 +49,7 @@ protected:
         bool has_lock() {return has_lock_;}
         ~BoxLocker() {
             if (!has_lock_) return;
-            if (unlink(lock_name.c_str()) != -1)
+            if (unlink(lock_name.c_str()) == -1)
                 box->warning(4, serror("Error removing lock " + lock_name));
         }
     };
@@ -68,7 +68,7 @@ protected:
             if (!S_ISDIR(statbuf.st_mode)) continue;
 
             current_attempt += "lock";
-            int res = open(current_attempt.c_str(), O_RDWR | O_CREAT | O_EXCL);
+            int res = open(current_attempt.c_str(), O_RDWR | O_CREAT | O_EXCL, file_mode);
             if (res == -1 && errno == EEXIST) continue;
             if (res == -1) {
                 warning(4, serror("Something weird happened creating sandbox " + current_attempt));
