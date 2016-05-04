@@ -103,32 +103,22 @@ protected:
         }
     }
 
+    bool setup_io_redirect(const std::string& file, int dest_fd, mode_t mode) {
+        if (file == "") return true;
+        int src_fd = open((box_base_path(base_path, id_) + file).c_str(), mode);
+        if (src_fd == -1) {
+            send_error(1, errno);
+            return false;
+        }
+        dup2(src_fd, dest_fd);
+        return true;
+    }
+
     [[noreturn]] virtual void box_inner(const std::string& command, const std::vector<std::string>& args) {
         // Set up IO redirection.
-        if (stdin_ != "") {
-            int stdin_fd = open((box_base_path(base_path, id_) + stdin_).c_str(), O_RDONLY);
-            if (stdin_fd == -1) {
-                send_error(1, errno);
-                exit(1);
-            }
-            dup2(stdin_fd, fileno(stdin));
-        }
-        if (stdout_ != "") {
-            int stdout_fd = open((box_base_path(base_path, id_) + stdout_).c_str(), O_RDWR);
-            if (stdout_fd == -1) {
-                send_error(2, errno);
-                exit(1);
-            }
-            dup2(stdout_fd, fileno(stdout));
-        }
-        if (stderr_ != "") {
-            int stderr_fd = open((box_base_path(base_path, id_) + stderr_).c_str(), O_RDWR);
-            if (stderr_fd == -1) {
-                send_error(3, errno);
-                exit(1);
-            }
-            dup2(stderr_fd, fileno(stderr));
-        }
+        if (!setup_io_redirect(stdin_, fileno(stdin), O_RDONLY)) exit(1);
+        if (!setup_io_redirect(stdout_, fileno(stdout), O_RDWR)) exit(1);
+        if (!setup_io_redirect(stderr_, fileno(stderr), O_RDWR)) exit(1);
         // Make the pipe close on the call to exec()
         fcntl(comm[1], F_SETFD, FD_CLOEXEC);
         // Build arguments for execve
@@ -283,7 +273,7 @@ public:
     }
     virtual bool redirect_stdout(const std::string& stdout_file) {
         if (stdout_file == "") return true;
-        int fd = open((box_base_path(base_path, id_) + stdout_file).c_str(), O_RDWR | O_CREAT | O_TRUNC);
+        int fd = open((box_base_path(base_path, id_) + stdout_file).c_str(), O_RDWR | O_CREAT | O_TRUNC, box_mode);
         if (fd == -1) error(4, serror("Cannot create stdout file"));
         else {
             close(fd);
@@ -293,7 +283,7 @@ public:
     }
     virtual bool redirect_stderr(const std::string& stderr_file) {
         if (stderr_file == "") return true;
-        int fd = open((box_base_path(base_path, id_) + stderr_file).c_str(), O_RDWR | O_CREAT | O_TRUNC);
+        int fd = open((box_base_path(base_path, id_) + stderr_file).c_str(), O_RDWR | O_CREAT | O_TRUNC, box_mode);
         if (fd == -1) error(4, serror("Cannot create stderr file"));
         else {
             close(fd);
