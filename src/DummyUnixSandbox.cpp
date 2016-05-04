@@ -125,8 +125,15 @@ protected:
         // Build arguments for execve
         std::string executable = get_root() + command;
         std::vector<char*> e_args;
-        e_args.push_back(const_cast<char*>(executable.c_str()));
-        for (auto arg: args) e_args.push_back(const_cast<char*>(arg.c_str()));
+        char* executable_c_str = new char[executable.size()+1];
+        strcpy(executable_c_str, executable.c_str());
+        e_args.push_back(executable_c_str);
+
+        for (auto arg: args) {
+            char* tmp = new char[arg.size()+1];
+            strcpy(tmp, arg.c_str());
+            e_args.push_back(tmp);
+        }
         e_args.push_back(nullptr);
         // Set up limits
         struct rlimit rlim;

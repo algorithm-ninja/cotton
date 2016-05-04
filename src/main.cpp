@@ -313,10 +313,14 @@ std::vector<std::string> parse_subcommand_options(
         po::parsed_options parsed = po::command_line_parser(opts)
             .options(command_opts)
             .positional(pos)
+            .allow_unregistered()
             .run();
 
         po::store(parsed, vm);
         vm.notify();
+        trailing_vals = po::collect_unrecognized(parsed.options, po::include_positional);
+        for (unsigned i=0; i<required_args.size(); i++)
+            trailing_vals.erase(trailing_vals.begin());
     } catch (std::exception& e) {
         logger->error(1, e.what());
         logger->write();
@@ -396,16 +400,18 @@ int main(int argc, char** argv) {
         std::cerr << std::endl;
         std::cerr << global << std::endl;
         std::cerr << "Possible commands are:" << std::endl;
-        std::cerr << " list        list available implementations" << std::endl;
-        std::cerr << " check       check if a sandbox is consistent" << std::endl;
-        std::cerr << " set-limit   set some limit for the program execution" << std::endl;
-        std::cerr << " get-limit   read a current limit" << std::endl;
-        std::cerr << " mount       make paths readable to the process" << std::endl;
-        std::cerr << " umount      disable paths" << std::endl;
-        std::cerr << " run         execute command" << std::endl;
-        std::cerr << " get         get information on the last execution" << std::endl;
-        std::cerr << " clear       cleanup the sandbox" << std::endl;
-        std::cerr << " delete      delete the sandbox" << std::endl;
+        std::cerr << " list         list available implementations" << std::endl;
+        std::cerr << " check        check if a sandbox is consistent" << std::endl;
+        std::cerr << " set-limit    set some limit for the program execution" << std::endl;
+        std::cerr << " get-limit    read a current limit" << std::endl;
+        std::cerr << " set-redirect set io redirection" << std::endl;
+        std::cerr << " get-redirect get io redirection" << std::endl;
+        std::cerr << " mount        make paths readable to the process" << std::endl;
+        std::cerr << " umount       disable paths" << std::endl;
+        std::cerr << " run          execute command" << std::endl;
+        std::cerr << " get          get information on the last execution" << std::endl;
+        std::cerr << " clear        cleanup the sandbox" << std::endl;
+        std::cerr << " delete       delete the sandbox" << std::endl;
         return 1;
     }
 
