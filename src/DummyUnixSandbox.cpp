@@ -30,6 +30,7 @@ protected:
     int comm[2];
 
     static const mode_t box_mode = S_IRWXU | S_IRGRP | S_IROTH;
+    static const mode_t file_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
     virtual size_t create_box(size_t box_limit) {
         //TODO: fix this for the many weird things that could possibly happen
         for (size_t box_id = 1; box_id < box_limit; box_id++) {
@@ -273,7 +274,7 @@ public:
     }
     virtual bool redirect_stdout(const std::string& stdout_file) {
         if (stdout_file == "") return true;
-        int fd = open((box_base_path(base_path, id_) + stdout_file).c_str(), O_RDWR | O_CREAT | O_TRUNC, box_mode);
+        int fd = open((box_base_path(base_path, id_) + stdout_file).c_str(), O_RDWR | O_CREAT | O_TRUNC, file_mode);
         if (fd == -1) error(4, serror("Cannot create stdout file"));
         else {
             close(fd);
@@ -283,7 +284,7 @@ public:
     }
     virtual bool redirect_stderr(const std::string& stderr_file) {
         if (stderr_file == "") return true;
-        int fd = open((box_base_path(base_path, id_) + stderr_file).c_str(), O_RDWR | O_CREAT | O_TRUNC, box_mode);
+        int fd = open((box_base_path(base_path, id_) + stderr_file).c_str(), O_RDWR | O_CREAT | O_TRUNC, file_mode);
         if (fd == -1) error(4, serror("Cannot create stderr file"));
         else {
             close(fd);
