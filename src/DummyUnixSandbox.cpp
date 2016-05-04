@@ -31,6 +31,29 @@ protected:
 
     static const mode_t box_mode = S_IRWXU | S_IRGRP | S_IROTH;
     static const mode_t file_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+
+    class BoxLocker {
+        std::string lock_name;
+        const DummyUnixSandbox* box;
+        bool has_lock_;
+    public:
+        BoxLocker(const DummyUnixSandbox* box, const std::string& lock): box(box) {
+            std::string lock_name = box->get_root() + lock;
+            if (open(lock_name.c_str(), O_RDWR | O_CREAT | O_EXCL) == -1) {
+                box->error(4, serror("Error acquiring lock " + lock_name));
+                has_lock_ = false;
+            } else {
+                has_lock_ = true;
+            }
+        }
+        bool has_lock() {return has_lock_;}
+        ~BoxLocker() {
+            if (!has_lock_) return;
+            if (unlink(lock_name.c_str()) != -1)
+                box->warning(4, serror("Error removing lock " + lock_name));
+        }
+    };
+
     virtual size_t create_box(size_t box_limit) {
         //TODO: fix this for the many weird things that could possibly happen
         for (size_t box_id = 1; box_id < box_limit; box_id++) {
@@ -240,7 +263,7 @@ public:
     virtual size_t create_box() {
         return create_box(std::numeric_limits<int>::max());
     }
-    virtual std::string get_root() {
+    virtual std::string get_root() const {
         return box_base_path(base_path, id_) + "file_root/";
     }
     virtual bool set_memory_limit(size_t limit) {
@@ -319,6 +342,8 @@ public:
         return stderr_;
     }
     virtual bool run(const std::string& command, const std::vector<std::string>& args) {
+        BoxLocker locker(this, "run_lock");
+        if (!locker.has_lock()) return false;
         pid_t box_pid;
         int ret = pipe(comm);
         if (ret == -1) {

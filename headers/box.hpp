@@ -22,8 +22,8 @@ protected:
     const callback_t* on_warning;
     std::string base_path;
     size_t id_;
-    void error(int code, const std::string& err) {(*on_error)(code, err);}
-    void warning(int code, const std::string& err) {(*on_warning)(code, err);}
+    void error(int code, const std::string& err) const {(*on_error)(code, err);}
+    void warning(int code, const std::string& err) const {(*on_warning)(code, err);}
     Sandbox() {} // Constructor for boost::serialize
 public:
     typedef uint64_t feature_mask_t;
@@ -63,7 +63,7 @@ public:
     virtual int get_penality() = 0;
     virtual feature_mask_t get_features() = 0;
     virtual size_t create_box() = 0;
-    virtual std::string get_root() = 0;
+    virtual std::string get_root() const = 0;
     virtual bool check() {
         error(254, "This method is not implemented by this sandbox!");
         return false;
