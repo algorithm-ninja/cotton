@@ -45,7 +45,7 @@ int DummyUnixSandbox::get_error(int& error_id, int& err) {
     return 1;
 }
 
-std::string DummyUnixSandbox::err_string(int error_id) {
+std::string DummyUnixSandbox::err_string(int error_id) const {
     switch (error_id) {
         case -1: return "Error setting stack limit";
         case -2: return "Error setting memory limit";
@@ -88,6 +88,10 @@ bool DummyUnixSandbox::setup_io_redirect(const std::string& file, int dest_fd, m
 
 
 [[noreturn]] void DummyUnixSandbox::box_inner(const std::string& command, const std::vector<std::string>& args) {
+    // Set all privileges to the effective user id
+    // ie. drop privileges if the program is setuid, do nothing otherwise
+    setreuid(geteuid(), getuid());
+    setuid(getuid());
     // Set up IO redirection.
     if (!setup_io_redirect(stdin_, fileno(stdin), O_RDONLY)) exit(1);
     if (!setup_io_redirect(stdout_, fileno(stdout), O_RDWR)) exit(1);

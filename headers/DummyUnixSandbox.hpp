@@ -43,7 +43,7 @@ protected:
     bool send_error(int error_id, int err);
     // Returns -1 if there was an error, 0 if the pipe is closed and 1 otherwise.
     int get_error(int& error_id, int& err);
-    virtual std::string err_string(int error_id);
+    virtual std::string err_string(int error_id) const;
 
     bool prepare_io_redirect(const std::string& file, std::string& redir, mode_t mode);
     bool setup_io_redirect(const std::string& file, int dest_fd, mode_t mode);
