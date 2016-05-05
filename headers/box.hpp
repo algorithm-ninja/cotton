@@ -59,9 +59,9 @@ public:
     }
 
     Sandbox(const std::string& base_path): base_path(base_path) {}
-    virtual bool is_available() = 0;
-    virtual int get_penality() = 0;
-    virtual feature_mask_t get_features() = 0;
+    virtual bool is_available() const = 0;
+    virtual int get_penality() const = 0;
+    virtual feature_mask_t get_features() const = 0;
     virtual size_t create_box() = 0;
     virtual std::string get_root() const = 0;
     virtual bool check() {
@@ -88,31 +88,31 @@ public:
         error(254, "This method is not implemented by this sandbox!");
         return false;
     }
-    virtual size_t get_memory_limit() {
+    virtual size_t get_memory_limit() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
-    virtual size_t get_time_limit() {
+    virtual size_t get_time_limit() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
-    virtual size_t get_wall_time_limit() {
+    virtual size_t get_wall_time_limit() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
-    virtual size_t get_process_limit() {
+    virtual size_t get_process_limit() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
-    virtual size_t get_disk_limit() {
+    virtual size_t get_disk_limit() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
-    virtual std::vector<std::pair<std::string, std::string>> mount() {
+    virtual std::vector<std::pair<std::string, std::string>> mount() const {
         error(254, "This method is not implemented by this sandbox!");
         return {};
     }
-    virtual std::string mount(const std::string& box_path) {
+    virtual std::string mount(const std::string& box_path) const {
         error(254, "This method is not implemented by this sandbox!");
         return "";
     }
@@ -136,36 +136,36 @@ public:
         error(254, "This method is not implemented by this sandbox!");
         return false;
     }
-    virtual std::string get_stdin() {
+    virtual std::string get_stdin() const {
         error(254, "This method is not implemented by this sandbox!");
         return "";
     }
-    virtual std::string get_stdout() {
+    virtual std::string get_stdout() const {
         error(254, "This method is not implemented by this sandbox!");
         return "";
     }
-    virtual std::string get_stderr() {
+    virtual std::string get_stderr() const {
         error(254, "This method is not implemented by this sandbox!");
         return "";
     }
     virtual bool run(const std::string& command, const std::vector<std::string>& args) = 0;
-    virtual size_t get_memory_usage() {
+    virtual size_t get_memory_usage() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
-    virtual size_t get_running_time() {
+    virtual size_t get_running_time() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
-    virtual size_t get_wall_time() {
+    virtual size_t get_wall_time() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
-    virtual size_t get_return_code() {
+    virtual size_t get_return_code() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
-    virtual size_t get_signal() {
+    virtual size_t get_signal() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }

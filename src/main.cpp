@@ -350,6 +350,10 @@ std::vector<std::string> parse_subcommand_options(
 }
 
 int main(int argc, char** argv) {
+#ifdef __unix__
+    // Immediately drop privileges if the program is setuid, do nothing otherwise.
+    setreuid(geteuid(), getuid());
+#endif
     program_name = argv[0];
 #ifdef __unix__
     if (!isatty(fileno(stdout))) logger = new CottonJSONLogger;
