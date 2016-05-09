@@ -121,23 +121,23 @@ bool set_limit(const std::string& box_root, const std::string& box_id, const std
     auto s = load_box(box_root, box_id);
     if (s.get() == nullptr) return false;
     try {
-        if (what == "memory-limit") {
+        if (what == "memory") {
             bool ret = s->set_memory_limit(parse_space_limit(value));
             save_box(box_root, s);
             return ret;
-        } else if (what == "time-limit") {
+        } else if (what == "time") {
             bool ret = s->set_time_limit(parse_time_limit(value));
             save_box(box_root, s);
             return ret;
-        } else if (what == "wall-time-limit") {
+        } else if (what == "wall-time") {
             bool ret = s->set_wall_time_limit(parse_time_limit(value));
             save_box(box_root, s);
             return ret;
-        } else if (what == "process-limit") {
+        } else if (what == "process") {
             bool ret = s->set_process_limit(std::stoi(value));
             save_box(box_root, s);
             return ret;
-        } else if (what == "disk-limit") {
+        } else if (what == "disk") {
             bool ret = s->set_disk_limit(parse_space_limit(value));
             save_box(box_root, s);
             return ret;
@@ -154,15 +154,15 @@ bool set_limit(const std::string& box_root, const std::string& box_id, const std
 size_t get_limit(const std::string& box_root, const std::string& box_id, const std::string& what) {
     auto s = load_box(box_root, box_id);
     if (s.get() == nullptr) return 0;
-    if (what == "memory-limit") {
+    if (what == "memory") {
         return s->get_memory_limit();
-    } else if (what == "time-limit") {
+    } else if (what == "time") {
         return s->get_time_limit();
-    } else if (what == "wall-time-limit") {
+    } else if (what == "wall-time") {
         return s->get_wall_time_limit();
-    } else if (what == "process-limit") {
+    } else if (what == "process") {
         return s->get_process_limit();
-    } else if (what == "disk-limit") {
+    } else if (what == "disk") {
         return s->get_disk_limit();
     } else {
         logger->error(2, "Invalid limit type given!");
