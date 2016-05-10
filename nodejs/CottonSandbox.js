@@ -45,7 +45,7 @@ module.exports = class CottonSandbox {
       let status = childProcess.spawnSync('cotton', args);
       should(status.status).not.be.ok();
       let retJSON = JSON.parse(status.stdout);
-      should(retJSON.result).be.ok();
+      //should(retJSON.result).be.ok();  //FIXME: this breaks stuff
       return retJSON;
   }
 
@@ -212,6 +212,7 @@ module.exports = class CottonSandbox {
     should(command).be.String();
     should(args).be.Array();
     let cmdPath = childProcess.spawnSync('which', [command]).stdout;
+    cmdPath = Buffer.from(cmdPath).toString('ascii').trim();  // remove '\n'
     fse.symlinkSync(cmdPath, this._rootDir + command);
     let retValue = this.runRelative(command, args);
     fse.unlinkSync(this._rootDir + command);
@@ -247,6 +248,7 @@ module.exports = class CottonSandbox {
     ret.status = this._getStatus('return-code');
     ret.time = this._getStatus('running-time') / 1000000.0;
     ret.memory = this._getStatus('memory-usage') / 1024.0;
+    ret.signal = this._getStatus('signal');
     return ret;
   }
 

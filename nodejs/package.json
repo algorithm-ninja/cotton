@@ -1,0 +1,15 @@
+{
+  "name": "cotton",
+  "version": "0.1.1",
+  "description": "Cotton sandbox",
+  "main": "CottonSandbox.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "license": "Apache-2.0",
+  "repository": "https://github.com/algorithm-ninja/cotton",
+  "dependencies": {
+    "fs-extra": "^0.30.0",
+    "should": "^8.3.1"
+  }
+}
