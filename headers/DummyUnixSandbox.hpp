@@ -92,7 +92,7 @@ public:
         return true;
     }
     virtual size_t get_memory_limit() const override {
-        return memory_limit;
+        return mem_limit;
     }
     virtual size_t get_time_limit() const override {
         return time_limit;

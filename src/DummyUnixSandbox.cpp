@@ -125,7 +125,7 @@ bool DummyUnixSandbox::setup_io_redirect(const std::string& file, int dest_fd, m
     rlim.rlim_cur = rlim.rlim_max = RLIM_INFINITY;
     if (setrlimit(RLIMIT_STACK, &rlim) == -1) send_error(-1, errno);
     if (mem_limit) {
-        rlim.rlim_cur = rlim.rlim_max = mem_limit*1024;
+        rlim.rlim_cur = rlim.rlim_max = mem_limit*1024UL;
         if (setrlimit(RLIMIT_AS, &rlim) == -1) send_error(-2, errno);
     }
     if (time_limit) {
