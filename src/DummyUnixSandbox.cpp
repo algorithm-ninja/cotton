@@ -66,7 +66,7 @@ bool DummyUnixSandbox::prepare_io_redirect(const std::string& file, std::string&
         redir = file;
         return true;
     }
-    int fd = open((box_base_path(base_path, id_) + file).c_str(), mode, file_mode);
+    int fd = open((get_root() + file).c_str(), mode, file_mode);
     if (fd == -1) error(4, serror("Cannot open file " + file));
     else {
         close(fd);
@@ -77,7 +77,7 @@ bool DummyUnixSandbox::prepare_io_redirect(const std::string& file, std::string&
 
 bool DummyUnixSandbox::setup_io_redirect(const std::string& file, int dest_fd, mode_t mode) {
     if (file == "") return true;
-    int src_fd = open((box_base_path(base_path, id_) + file).c_str(), mode);
+    int src_fd = open((get_root() + file).c_str(), mode);
     if (src_fd == -1) {
         send_error(1, errno);
         return false;
