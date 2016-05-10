@@ -18,7 +18,7 @@ std::string NamespaceSandbox::err_string(int error_id) const {
     // Become root again
     setreuid(geteuid(), getuid());
     // Change namespace
-    if (unshare(CLONE_NEWNET | CLONE_NEWPID | CLONE_NEWIPC) == -1) {
+    if (unshare(CLONE_NEWNET | CLONE_NEWIPC) == -1) {
         send_error(100, errno);
         exit(1);
     }

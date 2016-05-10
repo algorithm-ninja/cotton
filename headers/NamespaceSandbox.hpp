@@ -7,7 +7,7 @@ class NamespaceSandbox: public DummyUnixSandbox {
 public:
     using DummyUnixSandbox::DummyUnixSandbox;
     virtual feature_mask_t get_features() const override {
-        return DummyUnixSandbox::get_features() | Sandbox::process_isolation | 
+        return DummyUnixSandbox::get_features() | //Sandbox::process_isolation |
             Sandbox::network_isolation;
     }
     virtual bool is_available() const override;
