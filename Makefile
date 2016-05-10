@@ -1,5 +1,5 @@
 OBJECTS=$(patsubst src/%.cpp,build/%.o,$(wildcard src/*cpp))
-CC=g++
+CXX?=g++
 CXXFLAGS=-O2 -Wall -std=c++11 -Iheaders -ggdb
 LDFLAGS=-lboost_program_options -lboost_iostreams -lboost_serialization
 
@@ -8,10 +8,10 @@ LDFLAGS=-lboost_program_options -lboost_iostreams -lboost_serialization
 all: build/cotton
 
 build/cotton: ${OBJECTS}
-	${CC} ${OBJECTS} ${LDFLAGS} -o build/cotton
+	${CXX} ${OBJECTS} ${LDFLAGS} -o build/cotton
 
 build/%.o: src/%.cpp $(wildcard headers/*hpp)
-	${CC} ${CXXFLAGS} -c -o $@ $<
+	${CXX} ${CXXFLAGS} -c -o $@ $<
 
 clean:
 	rm -f build/cotton ${OBJECTS}
