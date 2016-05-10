@@ -13,6 +13,9 @@ public:
     virtual bool is_available() const override;
     virtual std::string err_string(int error_id) const override;
     [[noreturn]] virtual void box_inner(const std::string& command, const std::vector<std::string>& args) override;
+    template <typename Archive> void serialize(Archive &ar, const unsigned int version) {
+        ar & boost::serialization::base_object<DummyUnixSandbox>(*this);
+    }
 };
 
 #endif
