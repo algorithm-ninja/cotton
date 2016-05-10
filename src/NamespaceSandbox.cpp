@@ -3,6 +3,7 @@
 #define _GNU_SOURCE
 #endif
 #include "NamespaceSandbox.hpp"
+#include "util.hpp"
 #include <sched.h>
 
 bool NamespaceSandbox::is_available() const {
@@ -10,21 +11,50 @@ bool NamespaceSandbox::is_available() const {
 }
 
 std::string NamespaceSandbox::err_string(int error_id) const {
-    if (error_id == 100) return "Error creating the new namespace!";
+    if (error_id == 100) return "Error creating the new namespace";
     return DummyUnixSandbox::err_string(error_id);
 }
 
-[[noreturn]] void NamespaceSandbox::box_inner(const std::string& command, const std::vector<std::string>& args) {
+bool NamespaceSandbox::run(const std::string& command, const std::vector<std::string>& args) {
+    BoxLocker locker(this, "run_lock");
+    if (!locker.has_lock()) return false;
     // Become root again
     setreuid(geteuid(), getuid());
-    // Change namespace
-    if (unshare(CLONE_NEWNET | CLONE_NEWIPC) == -1) {
-        send_error(100, errno);
-        exit(1);
+    // Change PID namespace for the child process
+    if (unshare(CLONE_NEWPID) == -1) {
+        error(4, serror(err_string(100)));
+        return false;
     }
     // Drop privileges
     setreuid(geteuid(), getuid());
-    DummyUnixSandbox::box_inner(command, args);
+    pid_t box_pid;
+    int ret = pipe(comm);
+    if (ret == -1) {
+        error(4, serror("Error opening pipe to child process"));
+        return false;
+    }
+    if ((box_pid = fork()) != 0) {
+        if (box_pid == -1) {
+            error(4, serror("fork"));
+            return false;
+        }
+        close(comm[1]);
+        return box_checker(box_pid);
+    } else {
+        close(comm[0]);
+        // Become root again
+        setreuid(geteuid(), getuid());
+        // Change namespace
+        if (unshare(CLONE_NEWNET | CLONE_NEWIPC) == -1) {
+            send_error(100, errno);
+            exit(1);
+        }
+        // Drop privileges
+        setreuid(geteuid(), getuid());
+        box_inner(command, args);
+    }
+    error(253, "If you read this, something went very wrong");
+    return false;
 }
 
 
