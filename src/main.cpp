@@ -8,6 +8,10 @@
 #include <signal.h>
 #include <string.h>
 #endif
+#ifdef COTTON_WINDOWS
+#include <windows.h>
+#include <tchar.h>
+#endif
 namespace po = boost::program_options;
 
 BoxCreators* box_creators;
@@ -439,6 +443,10 @@ int main(int argc, char** argv) {
     }
 #ifdef COTTON_UNIX
     std::string box_root = "/tmp";
+#elif defined(COTTON_WINDOWS)
+    TCHAR box_root_buffer[MAX_PATH + 1];
+    GetTempPath(MAX_PATH, box_root_buffer);
+    std::string box_root = box_root_buffer;
 #else
     #error NOT IMPLEMENTED
 #endif
