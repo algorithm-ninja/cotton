@@ -1,6 +1,6 @@
-#if defined(__unix__) || defined(__APPLE__)
-#include "DummyUnixSandbox.hpp"
 #include "util.hpp"
+#ifdef COTTON_UNIX
+#include "DummyUnixSandbox.hpp"
 #include <limits>
 #include <chrono>
 #include <thread>

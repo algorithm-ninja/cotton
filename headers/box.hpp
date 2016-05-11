@@ -54,11 +54,7 @@ public:
     void set_warning_handler(const callback_t& cb) {on_warning = &cb;}
     size_t get_id() const {return id_;}
     static std::string box_base_path(const std::string& bp, size_t id) {
-#if defined(__unix__) || defined(__APPLE__)
         return bp + "/box_" + std::to_string(id) + "/";
-#else
-        return "pippo";
-#endif
     }
 
     Sandbox(const std::string& base_path): base_path(base_path) {}

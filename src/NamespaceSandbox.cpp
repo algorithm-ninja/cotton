@@ -1,9 +1,6 @@
-#if defined(__unix__)
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-#include "NamespaceSandbox.hpp"
 #include "util.hpp"
+#ifdef COTTON_LINUX
+#include "NamespaceSandbox.hpp"
 #include <sched.h>
 
 bool NamespaceSandbox::is_available() const {

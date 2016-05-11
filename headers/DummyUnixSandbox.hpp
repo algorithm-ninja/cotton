@@ -1,6 +1,6 @@
 #ifndef DUMMY_UNIX_SANDBOX_HPP
 #define DUMMY_UNIX_SANDBOX_HPP
-#if defined(__unix__) || defined(__APPLE__)
+#ifdef COTTON_UNIX
 #include "box.hpp"
 #include <fcntl.h>
 

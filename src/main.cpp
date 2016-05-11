@@ -3,7 +3,8 @@
 #include <vector>
 #include <fstream>
 #include <boost/program_options.hpp>
-#if defined(__unix__) || defined(__APPLE__)
+#include "util.hpp"
+#ifdef COTTON_UNIX
 #include <signal.h>
 #include <string.h>
 #endif
@@ -13,7 +14,7 @@ BoxCreators* box_creators;
 CottonLogger* logger;
 std::string program_name;
 
-#if defined(__unix__) || defined(__APPLE__)
+#ifdef COTTON_UNIX
 void sig_handler(int sig) {
     logger->error(255, "Received signal " + std::to_string(sig) + " (" + strsignal(sig) + ")");
     logger->write();
@@ -350,12 +351,12 @@ std::vector<std::string> parse_subcommand_options(
 }
 
 int main(int argc, char** argv) {
-#if defined(__unix__) || defined(__APPLE__)
+#ifdef COTTON_UNIX
     // Immediately drop privileges if the program is setuid, do nothing otherwise.
     setreuid(geteuid(), getuid());
 #endif
     program_name = argv[0];
-#if defined(__unix__) || defined(__APPLE__)
+#ifdef COTTON_UNIX
     if (!isatty(fileno(stdout))) logger = new CottonJSONLogger;
     else logger = new CottonTTYLogger;
 #else
@@ -419,7 +420,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-#if defined(__unix__) || defined(__APPLE__)
+#ifdef COTTON_UNIX
     signal(SIGHUP, sig_handler);
     signal(SIGINT, sig_handler);
     signal(SIGQUIT, sig_handler);
@@ -436,10 +437,10 @@ int main(int argc, char** argv) {
         delete logger;
         logger = new CottonJSONLogger;
     }
-#if defined(__unix__) || defined(__APPLE__)
+#ifdef COTTON_UNIX
     std::string box_root = "/tmp";
 #else
-    std::string box_root = "who knows";
+    #error NOT IMPLEMENTED
 #endif
     if (vm.count("box-root") == 1) box_root = vm["box-root"].as<std::string>();
 

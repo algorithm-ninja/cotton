@@ -1,5 +1,5 @@
-#if defined(__unix__) || defined(__APPLE__)
 #include "util.hpp"
+#ifdef COTTON_UNIX
 #include <unistd.h>
 #include <errno.h>
 #include <sys/stat.h>
