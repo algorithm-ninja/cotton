@@ -1,7 +1,14 @@
 OBJECTS=$(patsubst src/%.cpp,build/%.o,$(wildcard src/*cpp))
 CXX?=g++
 CXXFLAGS=-O2 -Wall -std=c++11 -Iheaders -ggdb
-LDFLAGS=-lboost_program_options -lboost_iostreams -lboost_serialization
+
+ifdef BOOST_PATH
+BOOST_FLAGS=-L${BOOST_PATH}
+else
+BOOST_FLAGS=
+endif
+
+LDFLAGS=-lboost_program_options -lboost_iostreams -lboost_serialization ${BOOST_FLAGS}
 
 .PHONY: all clean
 
