@@ -29,7 +29,7 @@ public:
 };
 
 class CottonTTYLogger: public CottonLogger {
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
     static constexpr const char* const error_color = "\033[31;1m";
     static constexpr const char* const warning_color = "\033[31;3m";
     static constexpr const char* const boxname_color = "\033[1;1m";
@@ -37,6 +37,7 @@ class CottonTTYLogger: public CottonLogger {
 #else
     static constexpr const char* const error_color = "";
     static constexpr const char* const warning_color = "";
+    static constexpr const char* const boxname_color = "";
     static constexpr const char* const reset_color = "";
 #endif
 public:

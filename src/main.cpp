@@ -3,17 +3,17 @@
 #include <vector>
 #include <fstream>
 #include <boost/program_options.hpp>
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
 #include <signal.h>
 #include <string.h>
 #endif
 namespace po = boost::program_options;
 
-BoxCreators box_creators __attribute__((init_priority(101)));
+BoxCreators* box_creators;
 CottonLogger* logger;
 std::string program_name;
 
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
 void sig_handler(int sig) {
     logger->error(255, "Received signal " + std::to_string(sig) + " (" + strsignal(sig) + ")");
     logger->write();
@@ -25,7 +25,7 @@ void sig_handler(int sig) {
 #define TEST_FEATURE(feature) if (features & Sandbox::feature) std::get<2>(res.back()).emplace_back(#feature);
 std::vector<std::tuple<std::string, int, std::vector<std::string>>> list_boxes(const std::string& box_root) {
     std::vector<std::tuple<std::string, int, std::vector<std::string>>> res;
-    for (const auto& creator: box_creators) {
+    for (const auto& creator: *box_creators) {
         std::unique_ptr<Sandbox> s(creator.second(box_root));
         s->set_error_handler(logger->get_error_function());
         s->set_warning_handler(logger->get_warning_function());
@@ -89,11 +89,11 @@ void save_box(const std::string& box_root, std::unique_ptr<Sandbox>& s) {
 
 
 size_t create_box(const std::string& box_root, const std::string& box_type) {
-    if (!box_creators.count(box_type)) {
+    if (!box_creators->count(box_type)) {
         logger->error(2, "The given box type does not exist!");
         return 0;
     }
-    std::unique_ptr<Sandbox> s(box_creators[box_type](box_root));
+    std::unique_ptr<Sandbox> s((*box_creators)[box_type](box_root));
     s->set_error_handler(logger->get_error_function());
     s->set_warning_handler(logger->get_warning_function());
     if (!s->is_available()) {
@@ -350,12 +350,12 @@ std::vector<std::string> parse_subcommand_options(
 }
 
 int main(int argc, char** argv) {
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
     // Immediately drop privileges if the program is setuid, do nothing otherwise.
     setreuid(geteuid(), getuid());
 #endif
     program_name = argv[0];
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
     if (!isatty(fileno(stdout))) logger = new CottonJSONLogger;
     else logger = new CottonTTYLogger;
 #else
@@ -419,7 +419,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
     signal(SIGHUP, sig_handler);
     signal(SIGINT, sig_handler);
     signal(SIGQUIT, sig_handler);
@@ -436,7 +436,7 @@ int main(int argc, char** argv) {
         delete logger;
         logger = new CottonJSONLogger;
     }
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
     std::string box_root = "/tmp";
 #else
     std::string box_root = "who knows";

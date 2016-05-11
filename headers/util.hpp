@@ -1,7 +1,8 @@
 #ifndef COTTON_UTIL_HPP
 #define COTTON_UTIL_HPP
 
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
+#include <errno.h>
 #include <string>
 #include <cstring>
 

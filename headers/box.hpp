@@ -9,13 +9,16 @@
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
 #define REGISTER_SANDBOX(sbx) __attribute__((constructor(65535))) static void register_sandbox_ ## sbx() { \
-    box_creators[#sbx] = &create_sandbox<sbx>; \
+    if (box_creators == nullptr) { \
+      box_creators = new BoxCreators(); \
+    } \
+    (*box_creators)[#sbx] = &create_sandbox<sbx>; \
 } \
 BOOST_CLASS_EXPORT(sbx)
 
 
 // Times should be microseconds.
-// Space usages should be kilobytes 
+// Space usages should be kilobytes
 class Sandbox {
 protected:
     const callback_t* on_error;
@@ -51,7 +54,7 @@ public:
     void set_warning_handler(const callback_t& cb) {on_warning = &cb;}
     size_t get_id() const {return id_;}
     static std::string box_base_path(const std::string& bp, size_t id) {
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
         return bp + "/box_" + std::to_string(id) + "/";
 #else
         return "pippo";
@@ -183,7 +186,7 @@ public:
 
 typedef std::map<std::string, std::function<Sandbox*(const std::string&)>> BoxCreators;
 
-extern BoxCreators box_creators;
+extern BoxCreators* box_creators;
 template<typename T> Sandbox* create_sandbox(const std::string& base_path) {return new T(base_path);}
 
 #endif

@@ -1,6 +1,6 @@
 #ifndef NAMESPACE_SANDBOX_HPP
 #define NAMESPACE_SANDBOX_HPP
-#ifdef __linux__
+#if defined(__unix__) || defined(__APPLE__)
 #include "DummyUnixSandbox.hpp"
 
 class NamespaceSandbox: public DummyUnixSandbox {
