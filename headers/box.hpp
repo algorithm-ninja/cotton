@@ -8,7 +8,7 @@
 #include <boost/serialization/export.hpp>
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
-#define REGISTER_SANDBOX(sbx) __attribute__((constructor(65535))) static void register_sandbox_ ## sbx() { \
+#define REGISTER_SANDBOX(sbx) __attribute__((constructor)) static void register_sandbox_ ## sbx() { \
     if (box_creators == nullptr) { \
         box_creators = new BoxCreators(); \
     } \
