@@ -21,8 +21,6 @@ set(FLAGS ${FLAGS} -std=c++11 -O2 -Wall)
 if(DEBUG)
     set(FLAGS ${FLAGS} -g)
     set(LIBS ${LIBS} -g)
-else()
-    set(FLAGS ${FLAGS} -Werror)
 endif()
 
 add_executable(cotton ${SOURCES})
