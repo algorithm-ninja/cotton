@@ -10,7 +10,7 @@
 #include <boost/archive/text_iarchive.hpp>
 #define REGISTER_SANDBOX(sbx) __attribute__((constructor(65535))) static void register_sandbox_ ## sbx() { \
     if (box_creators == nullptr) { \
-      box_creators = new BoxCreators(); \
+        box_creators = new BoxCreators(); \
     } \
     (*box_creators)[#sbx] = &create_sandbox<sbx>; \
 } \
@@ -24,7 +24,7 @@ protected:
     const callback_t* on_error;
     const callback_t* on_warning;
     std::string base_path;
-    size_t id_;
+    size_t id_ = 0;
     void error(int code, const std::string& err) const {(*on_error)(code, err);}
     void warning(int code, const std::string& err) const {(*on_warning)(code, err);}
     Sandbox() {} // Constructor for boost::serialize

@@ -7,22 +7,22 @@
 class DummyUnixSandbox: public Sandbox {
 protected:
     // Persistent data
-    size_t mem_limit;
-    size_t time_limit;
-    size_t wall_time_limit;
-    size_t process_limit;
-    size_t disk_limit;
+    size_t mem_limit = 0;
+    size_t time_limit = 0;
+    size_t wall_time_limit = 0;
+    size_t process_limit = 0;
+    size_t disk_limit = 0;
     std::string stdin_;
     std::string stdout_;
     std::string stderr_;
-    size_t memory_usage;
-    size_t running_time;
-    size_t wall_time;
-    size_t return_code;
-    size_t signal;
+    size_t memory_usage = 0;
+    size_t running_time = 0;
+    size_t wall_time = 0;
+    size_t return_code = 0;
+    size_t signal = 0;
 
     // Transient data
-    int comm[2];
+    int comm[2] = {0, 0};
 
     static const mode_t box_mode = S_IRWXU | S_IRGRP | S_IROTH;
     static const mode_t file_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
