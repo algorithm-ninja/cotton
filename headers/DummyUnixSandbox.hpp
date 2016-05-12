@@ -50,8 +50,9 @@ protected:
 
     [[noreturn]] virtual void box_inner(const std::string& command, const std::vector<std::string>& args);
     virtual bool box_checker(pid_t box_pid);
+    DummyUnixSandbox() {}
 public:
-    using Sandbox::Sandbox;
+    DummyUnixSandbox(const std::string& base_path): Sandbox(base_path) {}
     virtual bool is_available() const override {
         return true; // If it compiles, it should work.
     }
