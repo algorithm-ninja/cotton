@@ -6,7 +6,7 @@ void CottonTTYLogger::error(int code, const std::string& error) {
     std::cerr << reset_color << ": " << error << std::endl;
 }
 void CottonTTYLogger::warning(int code, const std::string& warning) {
-    std::cerr << warning_color << "Error " << code;
+    std::cerr << warning_color << "Warning " << code;
     std::cerr << reset_color << ": " << warning << std::endl;
 }
 void CottonTTYLogger::result(bool res) {
