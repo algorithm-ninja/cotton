@@ -71,45 +71,12 @@ module.exports = class CottonSandbox {
   }
 
   /**
-   * Adds a file to the sandbox which will be outside of sandbox'd directory.
-   * Use this function to add an input file
+   * Returns the absolute path to the root directory of the sandbox.
    *
-   * @param {string} the path to the file to add
-   * @param {string} the name the file will have inside the sandbox
-   * @return {CottonSandbox} the current object
+   * @return {string} the path to the sandbox directory
    */
-  addExtern(filename, stream) {
-    return this.add(filename, stream, '/tmp/box_' + this._sandboxNumber + '/');
-  }
-
-  /**
-   * Adds a file to the sandbox which will be inside of sandbox'd directory.
-   * Use this to add a source file or a result checker
-   *
-   * @param {string} the path to the file to add
-   * @param {string} the name the file will have inside the sandbox
-   * @param {?string} don't use this unless you know what you're doing
-   * @return {CottonSandbox} the current object
-   */
-  add(filename, newFilename, internalPath) {
-    if(!internalPath) {
-        internalPath = this._rootDir;
-    }
-    should(filename).be.a.String();
-    should(fse.statSync(filename).isFile()).be.true();
-    if (newFilename) {
-      should(newFilename).be.a.String();
-      should(newFilename.length).be.above(0);
-    }
-    try {
-      newFilename = newFilename || path.basename(filename);
-      newFilename = path.join(internalPath, newFilename);
-      fse.copySync(filename, newFilename);
-    } catch (err) {
-      console.error(err);
-    }
-
-    return this;
+  getRoot() {
+    return this._rootDir;
   }
 
   /**
