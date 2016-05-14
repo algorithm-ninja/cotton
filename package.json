@@ -1,8 +1,8 @@
 {
   "name": "cotton",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Cotton sandbox",
-  "main": "CottonSandbox.js",
+  "main": "nodejs/CottonSandbox.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
