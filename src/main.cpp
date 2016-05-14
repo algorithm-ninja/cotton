@@ -86,7 +86,8 @@ void save_box(const std::string& box_root, std::unique_ptr<Sandbox>& s) {
     try {
         std::ofstream fout(Sandbox::box_base_path(box_root, s->get_id()) + "boxinfo");
         boost::archive::text_oarchive oa{fout};
-        oa << s.get();
+        Sandbox* ptr = s.get();
+        oa << ptr;
     } catch (std::exception& e) {
         logger->error(3, std::string("Error saving the sandbox: ") + e.what());
     }
