@@ -7,6 +7,7 @@
 #ifdef COTTON_UNIX
 #include <signal.h>
 #include <string.h>
+#include <stdlib.h>
 #endif
 #ifdef COTTON_WINDOWS
 #include <windows.h>
@@ -22,7 +23,7 @@ std::string program_name;
 void sig_handler(int sig) {
     logger->error(255, "Received signal " + std::to_string(sig) + " (" + strsignal(sig) + ")");
     logger->write();
-    exit(0);
+    _Exit(0);
 }
 #endif
 
