@@ -126,8 +126,30 @@ module.exports = class CottonSandbox {
   }
 
   /**
-   * Sets the time limit for a command execution
+   * Sets the CPU time limit for a command execution
    *
+   * @todo Delete this when `timeLimit()` will accept keyword arguments.
+   * @warning This does not limit the real time used by a process. For
+   *     instance, using usleep() may leave the process hanging for a long
+   *     time.
+   * @param {number} the CPU time limit in seconds
+   * @return {CottonSandbox} the current object
+   */
+  cpuTimeLimit(time) {
+    should(time)
+        .be.a.Number()
+        .and.not.be.Infinity()
+        .and.be.above(0);
+    this._execute(['set-limit', this._sandboxNumber, 'time', time]);
+    return this;
+  }
+
+  /**
+   * Sets the time limit (both wall time and CPU time) for a command
+   * execution. The wall time is assumed to be `time + 1`, while the
+   * CPU time is set to `time`.
+   *
+   * @todo Use keyword arguments `cpuTime` and `wallTime`.
    * @param {number} the time limit in seconds
    * @return {CottonSandbox} the current object
    */
@@ -137,6 +159,7 @@ module.exports = class CottonSandbox {
         .and.not.be.Infinity()
         .and.be.above(0);
     this._execute(['set-limit', this._sandboxNumber, 'time', time]);
+    this._execute(['set-limit', this._sandboxNumber, 'wall-time', time + 1]);
     return this;
   }
 
