@@ -236,7 +236,8 @@ module.exports = class CottonSandbox {
     this._execute(args);
     let ret = {};
     ret.status = this._getStatus('return-code');
-    ret.time = this._getStatus('running-time') / 1000000.0;
+    ret.cpuTime = this._getStatus('running-time') / 1000000.0;
+    ret.wallTime = this._getStatus('wall-time') / 1000000.0;
     ret.memory = this._getStatus('memory-usage') / 1024.0;
     ret.signal = this._getStatus('signal');
     return ret;
