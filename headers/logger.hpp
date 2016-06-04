@@ -4,6 +4,7 @@
 #include <vector>
 #include <functional>
 #include "simple_json.hpp"
+#include "util.hpp"
 typedef std::function<void(int, const std::string& str)> callback_t;
 
 class CottonLogger {
@@ -20,8 +21,11 @@ public:
     virtual void error(int code, const std::string& error) = 0;
     virtual void warning(int code, const std::string& warning) = 0;
     virtual void result(bool res) = 0;
+    virtual void result(int res) {result((size_t)res);}
     virtual void result(size_t res) = 0;
     virtual void result(const std::string& res) = 0;
+    virtual void result(const time_limit_t& time) = 0;
+    virtual void result(const space_limit_t& space) = 0;
     virtual void result(const std::vector<std::pair<std::string, std::string>>& res) = 0;
     virtual void result(const std::vector<std::tuple<std::string, int, std::vector<std::string>>>& res) = 0;
     virtual void write() = 0;
@@ -41,6 +45,8 @@ public:
     void result(bool res) override;
     void result(size_t res) override;
     void result(const std::string& res) override;
+    void result(const time_limit_t& time) override;
+    void result(const space_limit_t& space) override;
     void result(const std::vector<std::pair<std::string, std::string>>& res) override;
     void result(const std::vector<std::tuple<std::string, int, std::vector<std::string>>>& res) override;
     void write() override {};
@@ -58,6 +64,8 @@ public:
     void result(bool res) override;
     void result(size_t res) override;
     void result(const std::string& res) override;
+    void result(const time_limit_t& time) override;
+    void result(const space_limit_t& space) override;
     void result(const std::vector<std::pair<std::string, std::string>>& res) override;
     void result(const std::vector<std::tuple<std::string, int, std::vector<std::string>>>& res) override;
     void write() override;

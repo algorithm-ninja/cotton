@@ -2,8 +2,10 @@
 #include "logger.hpp"
 #include <vector>
 #include <fstream>
-#include <boost/program_options.hpp>
 #include "util.hpp"
+#include <option.hpp>
+#include <positional.hpp>
+#include <command.hpp>
 #ifdef COTTON_UNIX
 #include <signal.h>
 #include <string.h>
@@ -13,11 +15,9 @@
 #include <windows.h>
 #include <tchar.h>
 #endif
-namespace po = boost::program_options;
 
 BoxCreators* box_creators;
 CottonLogger* logger;
-std::string program_name;
 
 #ifdef COTTON_UNIX
 void sig_handler(int sig) {
@@ -26,47 +26,6 @@ void sig_handler(int sig) {
     _Exit(0);
 }
 #endif
-
-
-#define TEST_FEATURE(feature) if (features & Sandbox::feature) std::get<2>(res.back()).emplace_back(#feature);
-std::vector<std::tuple<std::string, int, std::vector<std::string>>> list_boxes(const std::string& box_root) {
-    std::vector<std::tuple<std::string, int, std::vector<std::string>>> res;
-    for (const auto& creator: *box_creators) {
-        std::unique_ptr<Sandbox> s(creator.second(box_root));
-        s->set_error_handler(logger->get_error_function());
-        s->set_warning_handler(logger->get_warning_function());
-        if (!s->is_available()) continue;
-        res.emplace_back(creator.first, s->get_penality(), std::vector<std::string>{});
-        Sandbox::feature_mask_t features = s->get_features();
-        TEST_FEATURE(memory_limit);
-        TEST_FEATURE(time_limit);
-        TEST_FEATURE(wall_time_limit);
-        TEST_FEATURE(process_limit);
-        TEST_FEATURE(process_limit_full);
-        TEST_FEATURE(disk_limit);
-        TEST_FEATURE(disk_limit_full);
-        TEST_FEATURE(folder_mount);
-        TEST_FEATURE(memory_usage);
-        TEST_FEATURE(running_time);
-        TEST_FEATURE(wall_time);
-        TEST_FEATURE(clearable);
-        TEST_FEATURE(process_isolation);
-        TEST_FEATURE(io_redirection);
-        TEST_FEATURE(network_isolation);
-        TEST_FEATURE(return_code);
-        TEST_FEATURE(signal);
-    }
-    return res;
-}
-#undef TEST_FEATURE
-
-size_t parse_time_limit(const std::string& s) {
-    return std::stod(s)*1000000UL;
-}
-
-size_t parse_space_limit(const std::string& s) {
-    return std::stoi(s)*1024UL;
-}
 
 std::unique_ptr<Sandbox> load_box(const std::string& box_root, const std::string& box_id) {
     try {
@@ -94,339 +53,439 @@ void save_box(const std::string& box_root, std::unique_ptr<Sandbox>& s) {
     }
 }
 
+namespace program_options {
 
-size_t create_box(const std::string& box_root, const std::string& box_type) {
-    if (!box_creators->count(box_type)) {
-        logger->error(2, "The given box type does not exist!");
-        return 0;
+template<>
+time_limit_t from_char_ptr(const char* ptr) {
+    return time_limit_t(from_char_ptr<double>(ptr));
+}
+
+template<>
+space_limit_t from_char_ptr(const char* ptr) {
+    return space_limit_t(from_char_ptr<double>(ptr));
+}
+
+DEFINE_OPTION(help, "print this message", 'h');
+DEFINE_OPTION(box_root, "specify a different folder to put sandboxes in", 'r');
+DEFINE_OPTION(json, "force JSON output", 'j');
+DEFINE_OPTION(box_id, "id of the sandbox", 'b');
+DEFINE_OPTION(box_type, "type of the sandbox to be created");
+DEFINE_OPTION(value, "value to set");
+DEFINE_OPTION(stream, "the stream to operate on");
+DEFINE_OPTION(external_path, "path on the system");
+DEFINE_OPTION(internal_path, "path in the sandbox");
+DEFINE_OPTION(rw, "read-write");
+DEFINE_OPTION(exec, "executable to run");
+DEFINE_OPTION(arg, "arguments for the executable");
+
+DEFINE_COMMAND(list, "list available implementations");
+DEFINE_COMMAND(create, "create a sandbox",
+    positional<_box_type, const char*, 1>());
+DEFINE_COMMAND(check, "check if a sandbox is consistent");
+DEFINE_COMMAND(get_root, "gets the root path of the sandbox");
+DEFINE_COMMAND(cpu_limit, "gets or sets the cpu time limit",
+    positional<_value, time_limit_t, 0, 1>());
+DEFINE_COMMAND(wall_limit, "gets or sets the wall clock limit",
+    positional<_value, time_limit_t, 0, 1>());
+DEFINE_COMMAND(memory_limit, "gets or sets the memory limit",
+    positional<_value, space_limit_t, 0, 1>());
+DEFINE_COMMAND(disk_limit, "gets or sets the disk limit",
+    positional<_value, space_limit_t, 0, 1>());
+DEFINE_COMMAND(process_limit, "gets or sets the process limit",
+    positional<_value, int, 0, 1>());
+DEFINE_COMMAND(redirect, "gets or sets i/o redirections",
+    positional<_stream, const char*, 1>(),
+    positional<_value, const char*, 0, 1>());
+DEFINE_COMMAND(mount, "enables paths in the sandbox, or gets information on a path",
+    option<_rw, void>(),
+    positional<_internal_path, const char*, 1>(),
+    positional<_external_path, const char*, 0, 1>());
+DEFINE_COMMAND(umount, "disables paths in the sandbox",
+    positional<_internal_path, const char*, 1>());
+DEFINE_COMMAND(run, "run program in the sandbox",
+    positional<_exec, const char*, 1>(),
+    positional<_arg, const char*, 0, 1000>());
+DEFINE_COMMAND(running_time, "get last command's cpu time");
+DEFINE_COMMAND(wall_time, "get last command's wall time");
+DEFINE_COMMAND(memory_usage, "get last command's memory usage");
+DEFINE_COMMAND(status, "get last command's exit reason");
+DEFINE_COMMAND(return_code, "get last command's return code");
+DEFINE_COMMAND(signal, "get last command's killing signal");
+DEFINE_COMMAND(clear, "resets the sandbox to a clean state");
+DEFINE_COMMAND(destroy, "deletes the sandbox");
+
+DEFINE_COMMAND(cotton, "Cotton sandbox",
+    option<_help, void>(),
+    option<_box_root, const char*>("/tmp"),
+    option<_json, void>(),
+    option<_box_id, const char*>(),
+    &list_command,
+    &create_command,
+    &check_command,
+    &get_root_command,
+    &cpu_limit_command,
+    &wall_limit_command,
+    &memory_limit_command,
+    &disk_limit_command,
+    &process_limit_command,
+    &redirect_command,
+    &mount_command,
+    &umount_command,
+    &run_command,
+    &running_time_command,
+    &wall_time_command,
+    &memory_usage_command,
+    &status_command,
+    &return_code_command,
+    &signal_command,
+    &clear_command,
+    &destroy_command);
+
+template<>
+void command_callback(const decltype(cotton_command)& cc) {
+    if (cc.has_option<_help>()) {
+        cc.print_help(std::cerr);
+        exit(0);
     }
-    std::unique_ptr<Sandbox> s((*box_creators)[box_type](box_root));
+    if (cc.has_option<_json>()) {
+        delete logger;
+        logger = new CottonJSONLogger;
+    }
+}
+
+#define TEST_FEATURE(feature) if (features & Sandbox::feature) std::get<2>(res.back()).emplace_back(#feature);
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(list_command)& lc) {
+    std::vector<std::tuple<std::string, int, std::vector<std::string>>> res;
+    for (const auto& creator: *box_creators) {
+        std::unique_ptr<Sandbox> s(creator.second(cc.get_option<_box_root>()));
+        s->set_error_handler(logger->get_error_function());
+        s->set_warning_handler(logger->get_warning_function());
+        if (!s->is_available()) continue;
+        res.emplace_back(creator.first, s->get_overhead(), std::vector<std::string>{});
+        Sandbox::feature_mask_t features = s->get_features();
+        TEST_FEATURE(memory_limit);
+        TEST_FEATURE(cpu_limit);
+        TEST_FEATURE(wall_time_limit);
+        TEST_FEATURE(process_limit);
+        TEST_FEATURE(process_limit_full);
+        TEST_FEATURE(disk_limit);
+        TEST_FEATURE(disk_limit_full);
+        TEST_FEATURE(folder_mount);
+        TEST_FEATURE(memory_usage);
+        TEST_FEATURE(running_time);
+        TEST_FEATURE(wall_time);
+        TEST_FEATURE(clearable);
+        TEST_FEATURE(process_isolation);
+        TEST_FEATURE(io_redirection);
+        TEST_FEATURE(network_isolation);
+        TEST_FEATURE(return_code);
+        TEST_FEATURE(signal);
+    }
+    logger->result(res);
+}
+#undef TEST_FEATURE
+
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(create_command)& crc) {
+    if (!box_creators->count(crc.get_positional<_box_type>()[0])) {
+        logger->error(2, "The given box type does not exist!");
+        return;
+    }
+    auto box_creator = (*box_creators)[crc.get_positional<_box_type>()[0]];
+    std::unique_ptr<Sandbox> s(box_creator(cc.get_option<_box_root>()));
     s->set_error_handler(logger->get_error_function());
     s->set_warning_handler(logger->get_warning_function());
     if (!s->is_available()) {
         logger->error(2, "The given box type is not available!");
-        return 0;
+        return;
     }
     s->create_box();
-    save_box(box_root, s);
-    return s->get_id();
+    save_box(cc.get_option<_box_root>(), s);
+    logger->result(s->get_id());
 }
 
-bool check_box(const std::string& box_root, const std::string& box_id) {
-    auto s = load_box(box_root, box_id);
-    if (s.get() == nullptr) return false;
-    return s->check();
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(check_command)& chc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    logger->result(s.get() == nullptr ? false : s->check());
 }
 
-std::string get_root(const std::string& box_root, const std::string& box_id) {
-    auto s = load_box(box_root, box_id);
-    if (s.get() == nullptr) return "";
-    return s->get_root();
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(get_root_command)& grc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    logger->result(s.get() == nullptr ? "" : s->get_root());
 }
 
-bool set_limit(const std::string& box_root, const std::string& box_id, const std::string& what, const std::string& value) {
-    auto s = load_box(box_root, box_id);
-    if (s.get() == nullptr) return false;
-    try {
-        if (what == "memory") {
-            bool ret = s->set_memory_limit(parse_space_limit(value));
-            save_box(box_root, s);
-            return ret;
-        } else if (what == "time") {
-            bool ret = s->set_time_limit(parse_time_limit(value));
-            save_box(box_root, s);
-            return ret;
-        } else if (what == "wall-time") {
-            bool ret = s->set_wall_time_limit(parse_time_limit(value));
-            save_box(box_root, s);
-            return ret;
-        } else if (what == "process") {
-            bool ret = s->set_process_limit(std::stoi(value));
-            save_box(box_root, s);
-            return ret;
-        } else if (what == "disk") {
-            bool ret = s->set_disk_limit(parse_space_limit(value));
-            save_box(box_root, s);
-            return ret;
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(memory_limit_command)& lc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    if (lc.count_positional<_value>() > 0) {
+        const auto& val = lc.get_positional<_value>()[0];
+        logger->result(s.get() == nullptr ? false : s->set_memory_limit(val));
+        save_box(cc.get_option<_box_root>(), s);
+    } else {
+        logger->result(s.get() == nullptr ? 0 : s->get_memory_limit());
+    }
+}
+
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(cpu_limit_command)& lc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    if (lc.count_positional<_value>() > 0) {
+        const auto& val = lc.get_positional<_value>()[0];
+        logger->result(s.get() == nullptr ? false : s->set_time_limit(val));
+        save_box(cc.get_option<_box_root>(), s);
+    } else {
+        logger->result(s.get() == nullptr ? 0 : s->get_time_limit());
+    }
+}
+
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(wall_limit_command)& lc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    if (lc.count_positional<_value>() > 0) {
+        const auto& val = lc.get_positional<_value>()[0];
+        logger->result(s.get() == nullptr ? false : s->set_wall_time_limit(val));
+        save_box(cc.get_option<_box_root>(), s);
+    } else {
+        logger->result(s.get() == nullptr ? 0 : s->get_wall_time_limit());
+    }
+}
+
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(process_limit_command)& lc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    if (lc.count_positional<_value>() > 0) {
+        const auto& val = lc.get_positional<_value>()[0];
+        logger->result(s.get() == nullptr ? false : s->set_process_limit(val));
+        save_box(cc.get_option<_box_root>(), s);
+    } else {
+        logger->result(s.get() == nullptr ? 0 : s->get_process_limit());
+    }
+}
+
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(disk_limit_command)& lc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    if (lc.count_positional<_value>() > 0) {
+        const auto& val = lc.get_positional<_value>()[0];
+        logger->result(s.get() == nullptr ? false : s->set_disk_limit(val));
+        save_box(cc.get_option<_box_root>(), s);
+    } else {
+        logger->result(s.get() == nullptr ? 0 : s->get_disk_limit());
+    }
+}
+
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(redirect_command)& rc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    std::string stream = rc.get_positional<_stream>()[0];
+    if (rc.count_positional<_value>() > 0) {
+        if (s.get() == nullptr) {
+            logger->result(false);
+            return;
+        }
+        std::string val = rc.get_positional<_value>()[0];
+        if (val == "-") val = "";
+        if (stream == "stdin") {
+            logger->result(s->redirect_stdin(val));
+        } else if (stream == "stdout") {
+            logger->result(s->redirect_stdout(val));
+        } else if (stream == "stderr") {
+            logger->result(s->redirect_stderr(val));
         } else {
-            logger->error(2, "Invalid limit type given!");
-            return false;
+            logger->error(2, "Invalid redirect type given");
+            logger->result(false);
         }
-    } catch (std::exception& e) {
-            logger->error(2, "Invalid limit value given!");
-            return false;
-    }
-}
-
-size_t get_limit(const std::string& box_root, const std::string& box_id, const std::string& what) {
-    auto s = load_box(box_root, box_id);
-    if (s.get() == nullptr) return 0;
-    if (what == "memory") {
-        return s->get_memory_limit();
-    } else if (what == "time") {
-        return s->get_time_limit();
-    } else if (what == "wall-time") {
-        return s->get_wall_time_limit();
-    } else if (what == "process") {
-        return s->get_process_limit();
-    } else if (what == "disk") {
-        return s->get_disk_limit();
+        save_box(cc.get_option<_box_root>(), s);
     } else {
-        logger->error(2, "Invalid limit type given!");
-        return 0;
-    }
-}
-
-std::string get_redirect(const std::string& box_root, const std::string& box_id, const std::string& what) {
-    auto s = load_box(box_root, box_id);
-    if (s.get() == nullptr) return "";
-    if (what == "stdout") {
-        return s->get_stdout();
-    } else if (what == "stderr") {
-        return s->get_stderr();
-    } else if (what == "stdin") {
-        return s->get_stdin();
-    } else {
-        logger->error(2, "Invalid redirect type given!");
-        return "";
-    }
-}
-
-bool set_redirect(const std::string& box_root, const std::string& box_id, const std::string& what, const std::string& value = "") {
-    auto s = load_box(box_root, box_id);
-    if (s.get() == nullptr) return false;
-    if (what == "stdout") {
-        bool ret = s->redirect_stdout(value);
-        save_box(box_root, s);
-        return ret;
-    } else if (what == "stderr") {
-        bool ret = s->redirect_stderr(value);
-        save_box(box_root, s);
-        return ret;
-    } else if (what == "stdin") {
-        bool ret = s->redirect_stdin(value);
-        save_box(box_root, s);
-        return ret;
-    } else {
-        logger->error(2, "Invalid redirect type given!");
-        return false;
-    }
-}
-
-std::vector<std::pair<std::string, std::string>> mount_info(const std::string& box_root, const std::string& box_id) {
-    auto s = load_box(box_root, box_id);
-    if (s.get() == nullptr) return {};
-    return s->mount();
-}
-
-std::string mount_info(const std::string& box_root, const std::string& box_id, const std::string& box_path) {
-    auto s = load_box(box_root, box_id);
-    if (s.get() == nullptr) return "";
-    return s->mount(box_path);
-}
-
-bool do_mount(const std::string& box_root, const std::string& box_id, const std::string& box_path, const std::string& orig_path, bool rw = false) {
-    auto s = load_box(box_root, box_id);
-    if (s.get() == nullptr) return false;
-    bool res = s->mount(box_path, orig_path, rw);
-    save_box(box_root, s);
-    return res;
-}
-
-bool do_umount(const std::string& box_root, const std::string& box_id, const std::string& box_path) {
-    auto s = load_box(box_root, box_id);
-    if (s.get() == nullptr) return false;
-    bool res = s->umount(box_path);
-    save_box(box_root, s);
-    return res;
-}
-
-bool run(const std::string& box_root, const std::string& box_id, const std::string& exec_path, const std::vector<std::string>& args) {
-    auto s = load_box(box_root, box_id);
-    if (s.get() == nullptr) return false;
-    bool res = s->run(exec_path, args);
-    save_box(box_root, s);
-    return res;
-}
-
-size_t get_stat(const std::string& box_root, const std::string& box_id, const std::string& what) {
-    auto s = load_box(box_root, box_id);
-    if (s.get() == nullptr) return 0;
-    if (what == "memory-usage") {
-        return s->get_memory_usage();
-    } else if (what == "running-time") {
-        return s->get_running_time();
-    } else if (what == "wall-time") {
-        return s->get_wall_time();
-    } else if (what == "return-code") {
-        return s->get_return_code();
-    } else if (what == "signal") {
-        return s->get_signal();
-    } else {
-        logger->error(2, "Invalid statistic type given!");
-        return 0;
-    }
-}
-
-bool clear_box(const std::string& box_root, const std::string& box_id) {
-    auto s = load_box(box_root, box_id);
-    if (s.get() == nullptr) return false;
-    bool res = s->clear();
-    save_box(box_root, s);
-    return res;
-}
-
-bool delete_box(const std::string& box_root, const std::string& box_id) {
-    auto s = load_box(box_root, box_id);
-    if (s.get() == nullptr) return false;
-    return s->delete_box();
-}
-
-std::vector<std::string> parse_subcommand_options(
-    po::options_description& global_opts,
-    const std::vector<std::string>& opts,
-    po::variables_map& vm,
-    const std::string& command_name,
-    const std::vector<std::pair<const char*, const char*>>& flags,
-    const std::vector<const char*>& required_args,
-    const std::vector<const char*>& optional_args,
-    const char* trailing_args = nullptr) {
-    po::options_description subcommand_descr(command_name + " options");
-    subcommand_descr.add_options()("help,h", "produce help message");
-    for (const auto& flag: flags)
-        subcommand_descr.add_options()(flag.first, flag.second);
-
-    po::options_description hidden_args("hidden arguments");
-    po::positional_options_description pos;
-    for (const auto& arg: required_args) {
-        hidden_args.add_options()(arg, po::value<std::string>()->required(), "");
-        pos.add(arg, 1);
-    }
-    for (const auto& arg: optional_args) {
-        hidden_args.add_options()(arg, po::value<std::string>(), "");
-        pos.add(arg, 1);
-    }
-
-    std::vector<std::string> trailing_vals;
-    if (trailing_args != nullptr) {
-        hidden_args.add_options()(trailing_args, po::value<std::vector<std::string>>(&trailing_vals)->composing(), "");
-        pos.add(trailing_args, -1);
-    }
-
-    po::options_description command_opts;
-    command_opts.add(subcommand_descr).add(hidden_args);
-
-    try {
-        po::parsed_options parsed = po::command_line_parser(opts)
-            .options(command_opts)
-            .positional(pos)
-            .allow_unregistered()
-            .run();
-
-        po::store(parsed, vm);
-        vm.notify();
-        trailing_vals = po::collect_unrecognized(parsed.options, po::include_positional);
-        for (unsigned i=0; i<required_args.size(); i++)
-            trailing_vals.erase(trailing_vals.begin());
-    } catch (std::exception& e) {
-        logger->error(1, e.what());
-        logger->write();
-        exit(2);
-    }
-    if (vm.count("help")) {
-        std::cerr << "Usage: " << program_name << " [global options] ";
-        std::cerr << command_name << " [options]";
-        for (auto arg: required_args) std::cerr << " " << arg;
-        for (auto arg: optional_args) std::cerr << " [" << arg;
-        if (trailing_args != nullptr)
-            std::cerr << " [" << trailing_args << " ... ]";
-        for (unsigned i=0; i<optional_args.size(); i++) std::cerr << "]";
-        std::cerr << std::endl << std::endl;
-        std::cerr << global_opts << std::endl;
-        std::cerr << subcommand_descr;
-        exit(1);
-    }
-    for (auto arg: required_args) {
-        if (vm.count(arg) == 0) {
-            logger->error(1, std::string("Missing required argument ") + arg);
-            logger->write();
-            exit(2);
+        if (s.get() == nullptr) {
+            logger->result("");
+            return;
+        }
+        if (stream == "stdin") {
+            logger->result(s->get_stdin());
+        } else if (stream == "stdout") {
+            logger->result(s->get_stdout());
+        } else if (stream == "stderr") {
+            logger->result(s->get_stderr());
+        } else {
+            logger->error(2, "Invalid redirect type given");
+            logger->result(false);
         }
     }
-    return trailing_vals;
 }
 
-int main(int argc, char** argv) {
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(mount_command)& mc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    const auto& inner_path = mc.get_positional<_internal_path>()[0];
+    if (mc.count_positional<_external_path>() > 0) {
+        const auto& val = mc.get_positional<_external_path>()[0];
+        logger->result(s.get() == nullptr ? false : s->mount(inner_path, val, mc.has_option<_rw>()));
+        save_box(cc.get_option<_box_root>(), s);
+    } else {
+        logger->result(s.get() == nullptr ? "" : s->mount(inner_path));
+    }
+}
+
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(umount_command)& uc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    const auto& inner_path = uc.get_positional<_internal_path>()[0];
+    logger->result(s.get() == nullptr ? false : s->umount(inner_path));
+    save_box(cc.get_option<_box_root>(), s);
+}
+
+
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(run_command)& rc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    const auto& exec = rc.get_positional<_exec>()[0];
+    const auto& args = rc.get_positional<_arg>();
+    std::vector<std::string> s_args;
+    for (const auto str: args) s_args.emplace_back(str);
+    logger->result(s.get() == nullptr ? false : s->run(exec, s_args));
+    save_box(cc.get_option<_box_root>(), s);
+}
+
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(memory_usage_command)& muc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    logger->result(s.get() == nullptr ? space_limit_t(0) : s->get_memory_usage());
+}
+
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(running_time_command)& rtc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    logger->result(s.get() == nullptr ? time_limit_t(0) : s->get_running_time());
+}
+
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(wall_time_command)& rtc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    logger->result(s.get() == nullptr ? time_limit_t(0) : s->get_wall_time());
+}
+
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(status_command)& rtc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    logger->result(s.get() == nullptr ? "" : s->get_status());
+}
+
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(return_code_command)& rtc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    logger->result(s.get() == nullptr ? 0 : s->get_return_code());
+}
+
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(signal_command)& rtc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    logger->result(s.get() == nullptr ? 0 : s->get_signal());
+}
+
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(clear_command)& rtc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    logger->result(s.get() == nullptr ? false : s->clear());
+    save_box(cc.get_option<_box_root>(), s);
+}
+
+
+template<>
+void command_callback(const decltype(cotton_command)& cc, const decltype(destroy_command)& rtc) {
+    if (!cc.has_option<_box_id>()) {
+        logger->error(2, "You need to specify a box id!");
+        return;
+    }
+    auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
+    logger->result(s.get() == nullptr ? false : s->delete_box());
+}
+
+} // namespace program_options
+
+int main(int argc, const char** argv) {
 #ifdef COTTON_UNIX
     // Immediately drop privileges if the program is setuid, do nothing otherwise.
     setreuid(geteuid(), getuid());
-#endif
-    program_name = argv[0];
-#ifdef COTTON_UNIX
+
     if (!isatty(fileno(stdout))) logger = new CottonJSONLogger;
     else logger = new CottonTTYLogger;
-#else
-    logger = new CottonTTYLogger;
-#endif
-    po::options_description global("Generic options");
-    global.add_options()
-        ("help,h", "produce help message")
-        ("box-root,b", po::value<std::string>(), "specify a different folder to put sandboxes in")
-        ("json,j", "force JSON output");
 
-    po::options_description hidden("Hidden options");
-    hidden.add_options()
-        ("command", po::value<std::string>(), "command to execute")
-        ("command-args", po::value<std::vector<std::string>>(), "arguments for command");
-
-    po::positional_options_description pos;
-    pos.add("command", 1).
-        add("command-args", -1);
-
-    po::variables_map vm;
-
-    std::vector<std::string> opts;
-    po::options_description generic_opts("Generic options");
-    generic_opts.add(global).add(hidden);
-    try {
-        po::parsed_options parsed = po::command_line_parser(argc, argv)
-            .options(generic_opts)
-            .positional(pos)
-            .allow_unregistered()
-            .run();
-        po::store(parsed, vm);
-        vm.notify();
-        if (vm.count("command")) {
-            opts = po::collect_unrecognized(parsed.options, po::include_positional);
-            opts.erase(opts.begin());
-        }
-    } catch (std::exception& e) {
-        logger->error(1, e.what());
-        logger->write();
-        return 2;
-    }
-
-    if (vm.count("help") == 1 && vm.count("command") == 0) {
-        std::cerr << "Usage: " << program_name << " [options] command [command-args...]" << std::endl;
-        std::cerr << std::endl;
-        std::cerr << global << std::endl;
-        std::cerr << "Possible commands are:" << std::endl;
-        std::cerr << " list         list available implementations" << std::endl;
-        std::cerr << " check        check if a sandbox is consistent" << std::endl;
-        std::cerr << " set-limit    set some limit for the program execution" << std::endl;
-        std::cerr << " get-limit    read a current limit" << std::endl;
-        std::cerr << " set-redirect set io redirection" << std::endl;
-        std::cerr << " get-redirect get io redirection" << std::endl;
-        std::cerr << " mount        make paths readable to the process" << std::endl;
-        std::cerr << " umount       disable paths" << std::endl;
-        std::cerr << " run          execute command" << std::endl;
-        std::cerr << " get          get information on the last execution" << std::endl;
-        std::cerr << " clear        cleanup the sandbox" << std::endl;
-        std::cerr << " delete       delete the sandbox" << std::endl;
-        return 1;
-    }
-
-#ifdef COTTON_UNIX
     signal(SIGHUP, sig_handler);
     signal(SIGINT, sig_handler);
     signal(SIGQUIT, sig_handler);
@@ -437,83 +496,13 @@ int main(int argc, char** argv) {
     signal(SIGPIPE, sig_handler);
     signal(SIGTERM, sig_handler);
     signal(SIGBUS, sig_handler);
-#endif
-
-    if (vm.count("json") && logger->isttylogger()) {
-        delete logger;
-        logger = new CottonJSONLogger;
-    }
-#ifdef COTTON_UNIX
-    std::string box_root = "/tmp";
-#elif defined(COTTON_WINDOWS)
-    TCHAR box_root_buffer[MAX_PATH + 1];
-    GetTempPath(MAX_PATH, box_root_buffer);
-    std::string box_root = box_root_buffer;
 #else
-    #error NOT IMPLEMENTED
+    logger = new CottonTTYLogger;
 #endif
-    if (vm.count("box-root") == 1) box_root = vm["box-root"].as<std::string>();
-
-    if (!vm.count("command")) {
-        logger->error(1, "No command given!");
-    } else {
-        try {
-            std::string cmd = vm["command"].as<std::string>();
-            if (cmd == "list") {
-                parse_subcommand_options(global, opts, vm, "list", {}, {}, {});
-                logger->result(list_boxes(box_root));
-            } else if (cmd == "create") {
-                parse_subcommand_options(global, opts, vm, "create", {}, {"box-type"}, {});
-                logger->result(create_box(box_root, vm["box-type"].as<std::string>()));
-            } else if (cmd == "check") {
-                parse_subcommand_options(global, opts, vm, "check", {}, {"box-id"}, {});
-                logger->result(check_box(box_root, vm["box-id"].as<std::string>()));
-            } else if (cmd == "get-root") {
-                parse_subcommand_options(global, opts, vm, "get-root", {}, {"box-id"}, {});
-                logger->result(get_root(box_root, vm["box-id"].as<std::string>()));
-            } else if (cmd == "set-limit") {
-                parse_subcommand_options(global, opts, vm, "set-limit", {}, {"box-id", "what", "value"}, {});
-                logger->result(set_limit(box_root, vm["box-id"].as<std::string>(), vm["what"].as<std::string>(), vm["value"].as<std::string>()));
-            } else if (cmd == "get-limit") {
-                parse_subcommand_options(global, opts, vm, "get-limit", {}, {"box-id", "what"}, {});
-                logger->result(get_limit(box_root, vm["box-id"].as<std::string>(), vm["what"].as<std::string>()));
-            } else if (cmd == "get-redirect") {
-                parse_subcommand_options(global, opts, vm, "get-redirect", {}, {"box-id", "what"}, {});
-                logger->result(get_redirect(box_root, vm["box-id"].as<std::string>(), vm["what"].as<std::string>()));
-            } else if (cmd == "set-redirect") {
-                parse_subcommand_options(global, opts, vm, "set-redirect", {}, {"box-id", "what"}, {"value"});
-                if (vm.count("value") == 0)
-                    logger->result(set_redirect(box_root, vm["box-id"].as<std::string>(), vm["what"].as<std::string>()));
-                else
-                    logger->result(set_redirect(box_root, vm["box-id"].as<std::string>(), vm["what"].as<std::string>(), vm["value"].as<std::string>()));
-            } else if (cmd == "mount") {
-                parse_subcommand_options(global, opts, vm, "mount", {{"rw", "read-write"}}, {"box-id"}, {"box_path", "orig_path"});
-                if (vm.count("box_path") == 0)
-                    logger->result(mount_info(box_root, vm["box-id"].as<std::string>()));
-                else if (vm.count("orig_path") == 0)
-                    logger->result(mount_info(box_root, vm["box-id"].as<std::string>(), vm["box_path"].as<std::string>()));
-                else
-                    logger->result(do_mount(box_root, vm["box-id"].as<std::string>(), vm["box_path"].as<std::string>(), vm["orig_path"].as<std::string>(), vm.count("rw")));
-            } else if (cmd == "umount") {
-                parse_subcommand_options(global, opts, vm, "umount", {}, {"box-id", "box_path"}, {});
-                logger->result(do_umount(box_root, vm["box-id"].as<std::string>(), vm["box_path"].as<std::string>()));
-            } else if (cmd == "run") {
-                auto args = parse_subcommand_options(global, opts, vm, "run", {}, {"box-id", "exec_path"}, {}, "arg");
-                logger->result(run(box_root, vm["box-id"].as<std::string>(), vm["exec_path"].as<std::string>(), args));
-            } else if (cmd == "get") {
-                parse_subcommand_options(global, opts, vm, "get", {}, {"box-id", "statistic"}, {});
-                logger->result(get_stat(box_root, vm["box-id"].as<std::string>(), vm["statistic"].as<std::string>()));
-            } else if (cmd == "clear") {
-                parse_subcommand_options(global, opts, vm, "clear", {}, {"box-id"}, {});
-                logger->result(clear_box(box_root, vm["box-id"].as<std::string>()));
-            } else if (cmd == "delete") {
-                parse_subcommand_options(global, opts, vm, "delete", {}, {"box-id"}, {});
-                logger->result(delete_box(box_root, vm["box-id"].as<std::string>()));
-            } else
-                logger->error(1, "Unknown command!");
-        } catch (std::exception& e) {
-            logger->error(255, std::string("Unhandled exception! ") + e.what());
-        }
+    try {
+        program_options::cotton_command.parse(argc, argv);
+    } catch (std::exception& e) {
+        logger->error(255, std::string("Unandled exception! ") + e.what());
     }
     logger->write();
 }

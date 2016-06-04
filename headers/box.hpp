@@ -4,6 +4,7 @@
 #include <map>
 #include <cstdint>
 #include "logger.hpp"
+#include "util.hpp"
 
 #include <boost/serialization/export.hpp>
 #include <boost/archive/text_oarchive.hpp>
@@ -16,9 +17,6 @@
 } \
 BOOST_CLASS_EXPORT(sbx)
 
-
-// Times should be microseconds.
-// Space usages should be kilobytes
 class Sandbox {
 protected:
     const callback_t* on_error;
@@ -31,7 +29,7 @@ protected:
 public:
     typedef uint64_t feature_mask_t;
     static const feature_mask_t memory_limit         = 0x00000001;
-    static const feature_mask_t time_limit           = 0x00000002;
+    static const feature_mask_t cpu_limit            = 0x00000002;
     static const feature_mask_t wall_time_limit      = 0x00000004;
     static const feature_mask_t process_limit        = 0x00000008; // Limits process creation
     static const feature_mask_t process_limit_full   = 0x00000010; // Limits the number of processes
@@ -59,7 +57,7 @@ public:
 
     Sandbox(const std::string& base_path): base_path(base_path) {}
     virtual bool is_available() const = 0;
-    virtual int get_penality() const = 0;
+    virtual int get_overhead() const = 0;
     virtual feature_mask_t get_features() const = 0;
     virtual size_t create_box() = 0;
     virtual std::string get_root() const = 0;
@@ -67,15 +65,15 @@ public:
         error(254, "This method is not implemented by this sandbox!");
         return false;
     }
-    virtual bool set_memory_limit(size_t limit) {
+    virtual bool set_memory_limit(space_limit_t limit) {
         error(254, "This method is not implemented by this sandbox!");
         return false;
     }
-    virtual bool set_time_limit(size_t limit) {
+    virtual bool set_time_limit(time_limit_t limit) {
         error(254, "This method is not implemented by this sandbox!");
         return false;
     }
-    virtual bool set_wall_time_limit(size_t limit) {
+    virtual bool set_wall_time_limit(time_limit_t limit) {
         error(254, "This method is not implemented by this sandbox!");
         return false;
     }
@@ -83,19 +81,19 @@ public:
         error(254, "This method is not implemented by this sandbox!");
         return false;
     }
-    virtual bool set_disk_limit(size_t limit) {
+    virtual bool set_disk_limit(space_limit_t limit) {
         error(254, "This method is not implemented by this sandbox!");
         return false;
     }
-    virtual size_t get_memory_limit() const {
+    virtual space_limit_t get_memory_limit() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
-    virtual size_t get_time_limit() const {
+    virtual time_limit_t get_time_limit() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
-    virtual size_t get_wall_time_limit() const {
+    virtual time_limit_t get_wall_time_limit() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
@@ -103,7 +101,7 @@ public:
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
-    virtual size_t get_disk_limit() const {
+    virtual space_limit_t get_disk_limit() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
@@ -148,29 +146,33 @@ public:
         return "";
     }
     virtual bool run(const std::string& command, const std::vector<std::string>& args) = 0;
-    virtual size_t get_memory_usage() const {
+    virtual space_limit_t get_memory_usage() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
-    virtual size_t get_running_time() const {
+    virtual time_limit_t get_running_time() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
-    virtual size_t get_wall_time() const {
+    virtual time_limit_t get_wall_time() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
-    virtual size_t get_return_code() const {
+    virtual int get_return_code() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
-    virtual size_t get_signal() const {
+    virtual int get_signal() const {
         error(254, "This method is not implemented by this sandbox!");
         return 0;
     }
     virtual bool clear() {
         error(254, "This method is not implemented by this sandbox!");
         return false;
+    }
+    virtual std::string get_status() const {
+        error(254, "This method is not implemented by this sandbox!");
+        return "";
     }
     virtual bool delete_box() = 0;
     template <typename Archive> void serialize(Archive &ar, const unsigned int version) {

@@ -18,6 +18,12 @@ void CottonTTYLogger::result(size_t res) {
 void CottonTTYLogger::result(const std::string& res) {
     std::cout << res << std::endl;
 }
+void CottonTTYLogger::result(const time_limit_t& time) {
+    result(time.to_string());
+}
+void CottonTTYLogger::result(const space_limit_t& space) {
+    result(space.to_string());
+};
 void CottonTTYLogger::result(const std::vector<std::pair<std::string, std::string>>& res) {
     for (unsigned i=0; i<res.size(); i++)
         std::cout << res[i].first << ": " << res[i].second << std::endl;
@@ -25,7 +31,7 @@ void CottonTTYLogger::result(const std::vector<std::pair<std::string, std::strin
 void CottonTTYLogger::result(const std::vector<std::tuple<std::string, int, std::vector<std::string>>>& res) {
     for (unsigned i=0; i<res.size(); i++) {
         std::cout << boxname_color << std::get<0>(res[i]) << reset_color << std::endl;
-        std::cout << "penality: " << std::get<1>(res[i]) << std::endl;
+        std::cout << "overhead: " << std::get<1>(res[i]) << std::endl;
         std::cout << "features: ";
         for (auto feature: std::get<2>(res[i]))
             std::cout << feature << " ";
@@ -51,11 +57,17 @@ void CottonJSONLogger::result(const std::string& res) {
 void CottonJSONLogger::result(const std::vector<std::pair<std::string, std::string>>& res) {
     result_ = to_json_obj(res);
 }
+void CottonJSONLogger::result(const time_limit_t& time) {
+    result_ = to_json(time.double_seconds());
+}
+void CottonJSONLogger::result(const space_limit_t& space) {
+    result_ = to_json(space.kilobytes());
+};
 void CottonJSONLogger::result(const std::vector<std::tuple<std::string, int, std::vector<std::string>>>& res) {
     result_ = to_json_arr(res, [](const std::tuple<std::string, int, std::vector<std::string>>& v) {
         return to_json_obj(
             "name", std::get<0>(v),
-            "penality", std::get<1>(v),
+            "overhead", std::get<1>(v),
             "features", std::get<2>(v)
         );
     });

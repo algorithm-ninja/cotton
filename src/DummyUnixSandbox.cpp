@@ -124,20 +124,22 @@ bool DummyUnixSandbox::setup_io_redirect(const std::string& file, int dest_fd, m
     struct rlimit rlim;
     rlim.rlim_cur = rlim.rlim_max = RLIM_INFINITY;
     if (setrlimit(RLIMIT_STACK, &rlim) == -1) send_error(-1, errno);
-    if (mem_limit) {
-        rlim.rlim_cur = rlim.rlim_max = mem_limit*1024UL;
+    // Apple and Linux disagree on the RLIMIT_AS unit
+    if (mem_limit.rlimit_unit() != 0) {
+        rlim.rlim_cur = rlim.rlim_max = mem_limit.rlimit_unit();
         if (setrlimit(RLIMIT_AS, &rlim) == -1) send_error(-2, errno);
     }
-    if (time_limit) {
-        rlim.rlim_cur = rlim.rlim_max = (time_limit-1)/1000000+1;
+    if (time_limit.seconds() != 0) {
+        rlim.rlim_cur = rlim.rlim_max = time_limit.seconds();
         if (setrlimit(RLIMIT_CPU, &rlim) == -1) send_error(-3, errno);
     }
     if (process_limit) {
         rlim.rlim_cur = rlim.rlim_max = process_limit;
         if (setrlimit(RLIMIT_NPROC, &rlim) == -1) send_error(-4, errno);
     }
-    if (disk_limit) {
-        rlim.rlim_cur = rlim.rlim_max = disk_limit*1024;
+    // Should be bytes both on Apple and Linux 
+    if (disk_limit.bytes()) {
+        rlim.rlim_cur = rlim.rlim_max = disk_limit.bytes();
         if (setrlimit(RLIMIT_FSIZE, &rlim) == -1) send_error(-5, errno);
         rlim.rlim_cur = rlim.rlim_max = 0;
         if (setrlimit(RLIMIT_NOFILE, &rlim) == -1) send_error(-5, errno);
@@ -151,6 +153,7 @@ bool DummyUnixSandbox::box_checker(pid_t box_pid) {
     int error_id = 0;
     int err_msg = 0;
     int err_ret;
+    bool timed_out = false;
     while ((err_ret = get_error(error_id, err_msg)) != 0) {
         if (err_ret == -1) {
             error(5, serror("Error getting errors"));
@@ -166,11 +169,11 @@ bool DummyUnixSandbox::box_checker(pid_t box_pid) {
     // If we arrive here, exec() was successfully executed in the child.
     auto start = std::chrono::high_resolution_clock::now();
     int ret = 0;
-    if (wall_time_limit > 0) {
+    if (wall_time_limit.microseconds() > 0) {
         auto now = std::chrono::high_resolution_clock::now();
         size_t micros = std::chrono::duration_cast<std::chrono::microseconds>(now-start).count();
         bool waited = false;
-        while (micros < wall_time_limit) {
+        while (micros < wall_time_limit.microseconds()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             int what = waitpid(box_pid, &ret, WNOHANG);
             if (what > 0) {
@@ -181,6 +184,7 @@ bool DummyUnixSandbox::box_checker(pid_t box_pid) {
             micros = std::chrono::duration_cast<std::chrono::microseconds>(now-start).count();
         }
         if (!waited) {
+            timed_out = true;
             kill(box_pid, SIGKILL);
             waitpid(box_pid, &ret, 0);
         }
@@ -191,11 +195,14 @@ bool DummyUnixSandbox::box_checker(pid_t box_pid) {
     auto now = std::chrono::high_resolution_clock::now();
     return_code = WIFEXITED(ret) ? WEXITSTATUS(ret) : 0;
     signal = WIFSIGNALED(ret) ? WTERMSIG(ret) : 0;
-    wall_time = std::chrono::duration_cast<std::chrono::microseconds>(now-start).count();
+    if (timed_out) exit_status = "Timed out";
+    else exit_status = WIFSIGNALED(ret) ? "Signaled" : "Terminated normally";
+    wall_time = now-start;
     struct rusage stats;
     getrusage(RUSAGE_CHILDREN, &stats);
-    memory_usage = stats.ru_maxrss;
-    running_time = (stats.ru_utime.tv_sec+stats.ru_stime.tv_sec)*1000000ULL + (stats.ru_utime.tv_usec+stats.ru_stime.tv_usec);
+    memory_usage = space_limit_t::from_rlimit_unit(stats.ru_maxrss);
+    running_time = stats.ru_utime;
+    running_time += stats.ru_stime;
     return true;
 }
 
