@@ -356,9 +356,9 @@ void command_callback(const decltype(cotton_command)& cc, const decltype(mount_c
         return;
     }
     auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
-    const auto& inner_path = mc.get_positional<_internal_path>()[0];
+    std::string inner_path = mc.get_positional<_internal_path>()[0];
     if (mc.count_positional<_external_path>() > 0) {
-        const auto& val = mc.get_positional<_external_path>()[0];
+        std::string val = mc.get_positional<_external_path>()[0];
         logger->result(s.get() == nullptr ? false : s->mount(inner_path, val, mc.has_option<_rw>()));
         save_box(cc.get_option<_box_root>(), s);
     } else {
@@ -373,7 +373,7 @@ void command_callback(const decltype(cotton_command)& cc, const decltype(umount_
         return;
     }
     auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
-    const auto& inner_path = uc.get_positional<_internal_path>()[0];
+    std::string inner_path = uc.get_positional<_internal_path>()[0];
     logger->result(s.get() == nullptr ? false : s->umount(inner_path));
     save_box(cc.get_option<_box_root>(), s);
 }
@@ -386,8 +386,8 @@ void command_callback(const decltype(cotton_command)& cc, const decltype(run_com
         return;
     }
     auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
-    const auto& exec = rc.get_positional<_exec>()[0];
-    const auto& args = rc.get_positional<_arg>();
+    std::string exec = rc.get_positional<_exec>()[0];
+    auto args = rc.get_positional<_arg>();
     std::vector<std::string> s_args;
     for (const auto str: args) s_args.emplace_back(str);
     logger->result(s.get() == nullptr ? false : s->run(exec, s_args));

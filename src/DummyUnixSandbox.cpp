@@ -88,10 +88,6 @@ bool DummyUnixSandbox::setup_io_redirect(const std::string& file, int dest_fd, m
 
 
 [[noreturn]] void DummyUnixSandbox::box_inner(const std::string& command, const std::vector<std::string>& args) {
-    // Set all privileges to the effective user id
-    // ie. drop privileges if the program is setuid, do nothing otherwise
-    setreuid(geteuid(), getuid());
-    setuid(getuid());
     // Set up IO redirection.
     if (!setup_io_redirect(stdin_, fileno(stdin), O_RDONLY)) exit(1);
     if (!setup_io_redirect(stdout_, fileno(stdout), O_RDWR)) exit(1);
@@ -101,7 +97,9 @@ bool DummyUnixSandbox::setup_io_redirect(const std::string& file, int dest_fd, m
     fcntl(comm[1], F_SETFD, FD_CLOEXEC);
 
     // Build arguments for execve
-    std::string executable = get_root() + command;
+    int trailing_slash_count = 0;
+    while (command[trailing_slash_count] == '/') trailing_slash_count++;
+    std::string executable = command.substr(trailing_slash_count);
     std::vector<char*> e_args;
     char* executable_c_str = new char[executable.size()+1];
     strcpy(executable_c_str, executable.c_str());
@@ -144,6 +142,11 @@ bool DummyUnixSandbox::setup_io_redirect(const std::string& file, int dest_fd, m
         rlim.rlim_cur = rlim.rlim_max = 0;
         if (setrlimit(RLIMIT_NOFILE, &rlim) == -1) send_error(-5, errno);
     }
+    if (!pre_exec_hook()) exit(1);
+    // Set all privileges to the effective user id
+    // ie. drop privileges if the program is setuid, do nothing otherwise
+    setreuid(geteuid(), getuid());
+    setuid(getuid());
     execv(executable.c_str(), &e_args[0]);
     send_error(4, errno);
     exit(1);
@@ -246,6 +249,7 @@ size_t DummyUnixSandbox::create_box(size_t box_limit) {
 bool DummyUnixSandbox::run(const std::string& command, const std::vector<std::string>& args) {
     BoxLocker locker(this, "run_lock");
     if (!locker.has_lock()) return false;
+    if (!pre_fork_hook()) return false;
     pid_t box_pid;
     int ret = pipe(comm);
     if (ret == -1) {
@@ -258,9 +262,12 @@ bool DummyUnixSandbox::run(const std::string& command, const std::vector<std::st
             return false;
         }
         close(comm[1]);
-        return box_checker(box_pid);
+        bool ret = box_checker(box_pid);
+        if (!cleanup_hook()) return false;
+        return ret;
     } else {
         close(comm[0]);
+        if (!post_fork_hook()) exit(1);
         box_inner(command, args);
     }
     error(253, "If you read this, something went very wrong");

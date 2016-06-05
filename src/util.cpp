@@ -33,4 +33,22 @@ int rm_rf(const std::string& fld) {
     if (rmdir(fld.c_str()) == -1) return errno;
     return 0;
 }
+
+int mkdirs(const std::string& fld, mode_t mode) {
+    std::vector<char> folder(fld.begin(), fld.end());
+    folder.emplace_back(0);
+    int start = 0;
+    while (fld[start] == '/') start++;
+    for (unsigned i=start; i<folder.size(); i++) {
+        if (folder[i] != '/') continue;
+        folder[i] = 0;
+        if (mkdir(folder.data(), mode) == -1 && errno != EEXIST) return -1;
+        folder[i] = '/';
+    }
+    if (mkdir(folder.data(), mode) == -1 && errno != EEXIST) return -1;
+    return 0;
+}
+
+int Privileged::counter = 0;
+
 #endif

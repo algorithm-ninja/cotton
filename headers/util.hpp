@@ -30,6 +30,20 @@
 
 std::string serror(const std::string& base, int err = errno);
 int rm_rf(const std::string& fld);
+int mkdirs(const std::string& path, mode_t mode);
+
+struct Privileged {
+    static int counter;
+    Privileged() {
+        if (counter == 0) setreuid(geteuid(), getuid());
+        counter++;
+    }
+    ~Privileged() {
+        counter--;
+        if (counter == 0) setreuid(geteuid(), getuid());
+    }
+};
+
 #endif
 
 class time_limit_t {
