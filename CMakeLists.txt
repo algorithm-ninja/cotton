@@ -14,7 +14,7 @@ find_package(BOOST_SERIALIZATION REQUIRED)
 set(LIBS ${LIBS} ${BOOST_IOSTREAMS_LIBRARIES})
 set(LIBS ${LIBS} ${BOOST_SERIALIZATION_LIBRARIES})
 
-set(FLAGS ${FLAGS} -std=c++14 -O3 -Wall)
+set(FLAGS ${FLAGS} -std=c++14 -O3 -ftemplate-depth=1024 -Wall)
 
 if(DEBUG)
     set(FLAGS ${FLAGS} -g)
