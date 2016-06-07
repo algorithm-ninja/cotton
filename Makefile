@@ -1,6 +1,6 @@
 OBJECTS=$(patsubst src/%.cpp,build/%.o,$(wildcard src/*cpp))
 CXX?=g++
-CXXFLAGS=-O2 -Wall -std=c++14 -Iheaders -ggdb -Iprogram-options/headers
+CXXFLAGS=-O2 -Wall -std=c++14 -ftemplate-depth=1024 -Iheaders -ggdb -Iprogram-options/headers
 
 ifdef BOOST_PATH
 BOOST_FLAGS=-L${BOOST_PATH}
