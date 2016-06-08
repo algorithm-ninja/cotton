@@ -233,7 +233,7 @@ void command_callback(const decltype(cotton_command)& cc, const decltype(memory_
     }
     auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
     if (lc.count_positional<_value>() > 0) {
-        const auto& val = lc.get_positional<_value>()[0];
+        auto val = lc.get_positional<_value>()[0];
         logger->result(s.get() == nullptr ? false : s->set_memory_limit(val));
         save_box(cc.get_option<_box_root>(), s);
     } else {
@@ -249,7 +249,7 @@ void command_callback(const decltype(cotton_command)& cc, const decltype(cpu_lim
     }
     auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
     if (lc.count_positional<_value>() > 0) {
-        const auto& val = lc.get_positional<_value>()[0];
+        auto val = lc.get_positional<_value>()[0];
         logger->result(s.get() == nullptr ? false : s->set_time_limit(val));
         save_box(cc.get_option<_box_root>(), s);
     } else {
@@ -265,7 +265,7 @@ void command_callback(const decltype(cotton_command)& cc, const decltype(wall_li
     }
     auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
     if (lc.count_positional<_value>() > 0) {
-        const auto& val = lc.get_positional<_value>()[0];
+        auto val = lc.get_positional<_value>()[0];
         logger->result(s.get() == nullptr ? false : s->set_wall_time_limit(val));
         save_box(cc.get_option<_box_root>(), s);
     } else {
@@ -281,7 +281,7 @@ void command_callback(const decltype(cotton_command)& cc, const decltype(process
     }
     auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
     if (lc.count_positional<_value>() > 0) {
-        const auto& val = lc.get_positional<_value>()[0];
+        auto val = lc.get_positional<_value>()[0];
         logger->result(s.get() == nullptr ? false : s->set_process_limit(val));
         save_box(cc.get_option<_box_root>(), s);
     } else {
@@ -297,7 +297,7 @@ void command_callback(const decltype(cotton_command)& cc, const decltype(disk_li
     }
     auto s = load_box(cc.get_option<_box_root>(), cc.get_option<_box_id>());
     if (lc.count_positional<_value>() > 0) {
-        const auto& val = lc.get_positional<_value>()[0];
+        auto val = lc.get_positional<_value>()[0];
         logger->result(s.get() == nullptr ? false : s->set_disk_limit(val));
         save_box(cc.get_option<_box_root>(), s);
     } else {
