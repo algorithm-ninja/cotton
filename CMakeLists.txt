@@ -14,7 +14,7 @@ find_package(BOOST_SERIALIZATION REQUIRED)
 set(LIBS ${LIBS} ${BOOST_IOSTREAMS_LIBRARIES})
 set(LIBS ${LIBS} ${BOOST_SERIALIZATION_LIBRARIES})
 
-set(FLAGS ${FLAGS} -std=c++14 -O3 -ftemplate-depth=1024 -Wall)
+set(FLAGS ${FLAGS} -std=c++14 -O3 -ftemplate-depth=1024 -Wall -Wno-unused-result)
 
 if(DEBUG)
     set(FLAGS ${FLAGS} -g)
@@ -28,3 +28,5 @@ target_include_directories(cotton PRIVATE "${CMAKE_SOURCE_DIR}/headers/" "${CMAK
 target_link_libraries(cotton PRIVATE ${LIBS})
 
 target_compile_options(cotton PRIVATE ${FLAGS})
+
+install(TARGETS cotton DESTINATION bin)
