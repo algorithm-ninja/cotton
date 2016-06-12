@@ -357,9 +357,6 @@ module.exports = class CottonSandbox {
         .toString('utf-8');
     const outcome = JSON.parse(rawOutput);
 
-    console.log(args);
-    console.log(outcome);
-
     if (!_.isEmpty(outcome.errors)) {
       throw new Error(JSON.stringify(outcome.errors));
     }
