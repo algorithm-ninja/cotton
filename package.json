@@ -4,12 +4,22 @@
   "description": "Cotton sandbox",
   "main": "nodejs/CottonSandbox.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "ava"
   },
   "license": "Apache-2.0",
   "repository": "https://github.com/algorithm-ninja/cotton",
   "dependencies": {
+    "ava": "^0.14.0",
     "fs-extra": "^0.30.0",
+    "lodash": "^4.13.1",
     "should": "^8.3.1"
+  },
+  "devDependencies": {
+    "ava": "^0.14.0"
+  },
+  "ava": {
+    "files": [
+      "nodejs/*_tests.js"
+    ]
   }
 }
