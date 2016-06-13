@@ -145,7 +145,7 @@ module.exports = class CottonSandbox {
    * @return {CottonSandbox} the current object for chaining.
    */
   timeLimit(time) {
-    return this.cpuTimeLime(time).wallTimeLimit(time + 1);
+    return this.cpuTimeLimit(time).wallTimeLimit(time + 1);
   }
 
   /**
