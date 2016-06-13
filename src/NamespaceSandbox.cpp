@@ -59,7 +59,7 @@ bool NamespaceSandbox::pre_exec_hook() {
         std::string target = get_root() + mnt.first;
         unsigned long flags = MS_BIND | MS_NODEV | MS_NOSUID;
         if (!mnt.second.second) flags |= MS_RDONLY;
-        if (::mount(source.c_str(), target.c_str(), NULL, flags, NULL) == -1) {
+        if (::mount(source.c_str(), target.c_str(), "", flags, "") == -1) {
             send_error(101, errno);
             return false;
         }
