@@ -118,14 +118,7 @@ public:
         tmp.bytes_ = rlu;
         return tmp;
     }
-    size_t rlimit_unit() {
-#if defined(__APPLE__)
-        return bytes();
-#else
-        return kilobytes();
-#endif
-    }
-    static space_limit_t from_rlimit_unit(size_t rlu) {
+    static space_limit_t from_rusage_unit(size_t rlu) {
         space_limit_t tmp;
 #if defined(__APPLE__)
         tmp.bytes_ = rlu;

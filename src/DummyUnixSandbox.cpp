@@ -122,9 +122,8 @@ bool DummyUnixSandbox::setup_io_redirect(const std::string& file, int dest_fd, m
     struct rlimit rlim;
     rlim.rlim_cur = rlim.rlim_max = RLIM_INFINITY;
     if (setrlimit(RLIMIT_STACK, &rlim) == -1) send_error(-1, errno);
-    // Apple and Linux disagree on the RLIMIT_AS unit
-    if (mem_limit.rlimit_unit() != 0) {
-        rlim.rlim_cur = rlim.rlim_max = mem_limit.rlimit_unit();
+    if (mem_limit.bytes() != 0) {
+        rlim.rlim_cur = rlim.rlim_max = mem_limit.bytes();
         if (setrlimit(RLIMIT_AS, &rlim) == -1) send_error(-2, errno);
     }
     if (time_limit.seconds() != 0) {
@@ -135,7 +134,6 @@ bool DummyUnixSandbox::setup_io_redirect(const std::string& file, int dest_fd, m
         rlim.rlim_cur = rlim.rlim_max = process_limit;
         if (setrlimit(RLIMIT_NPROC, &rlim) == -1) send_error(-4, errno);
     }
-    // Should be bytes both on Apple and Linux 
     if (disk_limit.bytes()) {
         rlim.rlim_cur = rlim.rlim_max = disk_limit.bytes();
         if (setrlimit(RLIMIT_FSIZE, &rlim) == -1) send_error(-5, errno);
@@ -203,7 +201,7 @@ bool DummyUnixSandbox::box_checker(pid_t box_pid) {
     wall_time = now-start;
     struct rusage stats;
     getrusage(RUSAGE_CHILDREN, &stats);
-    memory_usage = space_limit_t::from_rlimit_unit(stats.ru_maxrss);
+    memory_usage = space_limit_t::from_rusage_unit(stats.ru_maxrss);
     running_time = stats.ru_utime;
     running_time += stats.ru_stime;
     return true;
