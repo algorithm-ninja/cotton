@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.0.2)
 
 project(cotton)
 
+include(CheckCXXCompilerFlag)
+
 option(DEBUG "Debug Build" OFF)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake-modules/")
@@ -14,7 +16,15 @@ find_package(BOOST_SERIALIZATION REQUIRED)
 set(LIBS ${LIBS} ${BOOST_IOSTREAMS_LIBRARIES})
 set(LIBS ${LIBS} ${BOOST_SERIALIZATION_LIBRARIES})
 
-set(FLAGS ${FLAGS} -std=c++14 -O3 -ftemplate-depth=1024 -Wall -Wno-unused-result)
+set(FLAGS ${FLAGS} -O3 -ftemplate-depth=1024 -Wall -Wno-unused-result)
+
+CHECK_CXX_COMPILER_FLAG("-std=gnu++14" COMPILER_SUPPORTS_CXX14)
+
+if(COMPILER_SUPPORTS_CXX14)
+    set(FLAGS ${FLAGS} -std=c++14)
+else()
+    set(FLAGS ${FLAGS} -std=c++1y)
+endif()
 
 if(DEBUG)
     set(FLAGS ${FLAGS} -g)

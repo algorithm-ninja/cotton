@@ -4,6 +4,7 @@
 #include "box.hpp"
 #include "util.hpp"
 #include <fcntl.h>
+#include <sys/stat.h>
 
 class DummyUnixSandbox: public Sandbox {
 protected:

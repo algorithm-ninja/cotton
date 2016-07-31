@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <vector>
 
 std::string serror(const std::string& base, int err) {
     return base + ": " + strerror(err);
